@@ -1,0 +1,67 @@
+/* 认证模块共享样式 */
+
+.auth-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #03a688 0%, #028a73 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-form-card {
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  padding: 40px;
+  position: relative;
+  z-index: 1;
+}
+
+.form-title {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.form-title h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 10px 0;
+}
+
+.form-title p {
+  color: #7f8c8d;
+  font-size: 16px;
+  margin: 0;
+}
+
+.custom-input {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.custom-button {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.auth-footer {
+  text-align: center;
+  margin-top: 30px;
+}
+
+.auth-footer a {
+  color: #03a688;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}

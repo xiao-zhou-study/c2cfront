@@ -1,0 +1,90 @@
+/* 物品模块共享样式 */
+
+.items-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.item-card {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.item-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
+}
+
+.item-image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+}
+
+.item-info {
+  padding: 16px;
+}
+
+.item-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.item-description {
+  font-size: 14px;
+  color: #606266;
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.item-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.item-price {
+  font-size: 20px;
+  font-weight: 700;
+  color: #03a688;
+}
+
+.item-location {
+  font-size: 12px;
+  color: #909399;
+}
+
+.item-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.favorite-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #909399;
+  font-size: 18px;
+  transition: color 0.3s ease;
+}
+
+.favorite-button.active {
+  color: #F56C6C;
+}
+
+.favorite-button:hover {
+  color: #F56C6C;
+}
