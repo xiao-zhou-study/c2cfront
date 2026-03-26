@@ -471,14 +471,8 @@ export interface ItemPublishRequest {
   conditionLevel: number // 0-全新, 1-九成新, 2-八成新
   images: string[]
   price: number
-  billingType: number // 1-按天, 2-按周, 3-按月
-  deposit: number
-  isNegotiable: boolean
-  minBorrowDays?: number
-  maxBorrowDays?: number
   location: string
   address?: string
-  borrowConditions?: string
 }
 
 /**

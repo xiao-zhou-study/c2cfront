@@ -46,22 +46,22 @@ export function getItemDetail(itemId: string): Promise<Item> {
 
 /**
  * 新增物品（POST /is/items）
- * 新增时 body.id 为 null 或不传。
- * @returns 物品 ID
+ * 新增时 body.id 为 null 或不传
+ * @returns 新创建的物品唯一 ID
  */
-export function publishItem(data: ItemPublishRequest): Promise<number> {
+export function publishItem(data: Omit<ItemPublishRequest, 'id'>): Promise<number> {
   return request.post<number>('/is/items', data)
 }
 
 /**
  * 更新物品信息（PUT /is/items/{id}）
- * 根据物品 ID 更新已发布物品详情。
- * id 使用 string 传递，避免雪花算法等长整型在前端 number 下精度丢失（后几位变 0）。
- * @param id 物品 ID（路径参数与 body.id 一致，字符串形式）
- * @param data 请求体，需包含 id（字符串）
+ * 根据物品 ID 更新已发布物品详情
+ * id 使用 string 传递，避免雪花算法等长整型在前端 number 下精度丢失（后几位变 0）
+ * @param id 物品 ID（路径参数，字符串形式）
+ * @param data 请求体，需包含 id（number 类型）
  * @returns 是否更新成功
  */
-export function updateItem(id: string, data: ItemPublishRequest & { id: string }): Promise<boolean> {
+export function updateItem(id: string, data: ItemPublishRequest): Promise<boolean> {
   return request.put<boolean>(`/is/items/${id}`, data)
 }
 

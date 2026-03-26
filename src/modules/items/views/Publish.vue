@@ -213,20 +213,6 @@
               show-word-limit
             />
           </el-form-item>
-
-          <el-form-item
-            label="交易说明"
-            prop="tradeNotes"
-          >
-            <el-input
-              v-model="form.tradeNotes"
-              type="textarea"
-              :rows="3"
-              placeholder="可以补充交易方式、见面地点偏好、注意事项等（选填）"
-              maxlength="200"
-              show-word-limit
-            />
-          </el-form-item>
         </el-card>
 
         <!-- 价格设置区域 -->
@@ -250,22 +236,26 @@
           <el-form-item
             label="出售价格"
             prop="price"
+            class="price-form-item"
           >
             <div class="price-input-wrapper">
               <el-input-number
                 v-model="form.price"
-                :min="0"
+                :min="0.01"
                 :max="99999"
                 :precision="2"
                 :controls="false"
                 placeholder="0.00"
                 class="price-input"
-              />
-              <span class="price-unit">元</span>
-            </div>
-            <div class="price-tip">
-              <el-icon class="tip-icon"><Warning /></el-icon>
-              <span>建议定价合理，可参考原价的 3-7 折</span>
+              >
+                <template #suffix>
+                  <span class="price-unit">元</span>
+                </template>
+              </el-input-number>
+              <div class="price-tip">
+                <el-icon class="tip-icon"><Warning /></el-icon>
+                <span>建议定价合理,可参考原价的 3-7 折</span>
+              </div>
             </div>
           </el-form-item>
         </el-card>
@@ -398,7 +388,6 @@ const getInitialFormState = () => ({
   category: '',
   condition: 0,
   description: '',
-  tradeNotes: '',
   price: null,
   location: '',
   address: ''
@@ -449,7 +438,7 @@ const rules = {
   ],
   title: [
     { required: true, message: '请输入物品名称', trigger: 'blur' },
-    { min: 2, max: 50, message: '物品名称长度在 2 到 50 个字符', trigger: 'blur' }
+    { min: 2, max: 100, message: '物品名称长度在 2 到 100 个字符', trigger: 'blur' }
   ],
   category: [
     { required: true, message: '请选择物品分类', trigger: 'change' }
@@ -463,13 +452,10 @@ const rules = {
   ],
   price: [
     { required: true, message: '请输入出售价格', trigger: 'blur' },
-    { type: 'number', min: 0, message: '价格不能为负数', trigger: 'blur' }
+    { type: 'number', min: 0.01, message: '价格必须大于 0.01 元', trigger: 'blur' }
   ],
   location: [
     { required: true, message: '请输入物品位置', trigger: 'blur' }
-  ],
-  address: [
-    { required: true, message: '请输入详细地址', trigger: 'blur' }
   ]
 }
 
@@ -529,17 +515,6 @@ const handleImagePreview = (file) => {
 }
 
 // 表单操作
-const validateForm = () => {
-  return new Promise((resolve, reject) => {
-    formRef.value.validate((valid) => {
-      if (valid) {
-        resolve()
-      } else {
-        reject(new Error('表单验证失败'))
-      }
-    })
-  })
-}
 
 // 重置表单信息
 const handleResetForm = () => {
@@ -565,7 +540,6 @@ const handleSaveDraft = async () => {
       category: form.category,
       condition: form.condition,
       description: form.description,
-      tradeNotes: form.tradeNotes,
       price: form.price,
       location: form.location,
       address: form.address
@@ -583,12 +557,44 @@ const handleSaveDraft = async () => {
 
 const handlePublish = async () => {
   try {
-    // 表单验证
-    await validateForm()
-
-    // 验证是否上传了图片
+    // 1. 先进行基础验证,不使用表单验证器,直接提示缺失项
+    const validationErrors = []
+    
     if (form.images.length === 0) {
-      ElMessage.error('请至少上传一张图片')
+      validationErrors.push('请至少上传一张物品图片')
+    }
+    
+    if (!form.title || form.title.trim().length === 0) {
+      validationErrors.push('请输入物品名称')
+    } else if (form.title.length < 2 || form.title.length > 100) {
+      validationErrors.push('物品名称长度在 2 到 100 个字符')
+    }
+    
+    if (!form.category) {
+      validationErrors.push('请选择物品分类')
+    }
+    
+    if (form.condition === null || form.condition === undefined) {
+      validationErrors.push('请选择物品成色')
+    }
+    
+    if (!form.description || form.description.trim().length === 0) {
+      validationErrors.push('请输入物品描述')
+    } else if (form.description.length < 10 || form.description.length > 500) {
+      validationErrors.push('描述长度在 10 到 500 个字符')
+    }
+    
+    if (!form.price || form.price < 0.01) {
+      validationErrors.push('请输入出售价格（至少 0.01 元）')
+    }
+    
+    if (!form.location || form.location.trim().length === 0) {
+      validationErrors.push('请输入物品位置')
+    }
+    
+    // 如果有验证错误,显示第一个错误
+    if (validationErrors.length > 0) {
+      ElMessage.warning(validationErrors[0])
       return
     }
 
@@ -596,7 +602,7 @@ const handlePublish = async () => {
 
     const isEdit = isEditMode.value
 
-    // 编辑模式：确认更新；发布模式：确认发布
+    // 2. 确认发布/更新操作
     if (isEdit) {
       await ElMessageBox.confirm(
         '确认更新此物品吗？修改后将立即生效。',
@@ -619,71 +625,96 @@ const handlePublish = async () => {
       )
     }
 
-    // 先上传图片
-    const loadingInstance = ElMessage({
-      message: '正在上传图片，请稍候...',
+    // 3. 上传图片到 Cloudflare R2
+    let imageUrls = []
+    
+    // 提取需要上传的文件（只上传有 raw 对象的本地文件）
+    const filesToUpload = form.images.filter(img => img.raw).map(img => img.raw)
+    
+    if (filesToUpload.length > 0) {
+      const uploadMsg = ElMessage({
+        message: `正在上传 ${filesToUpload.length} 张图片...`,
+        type: 'info',
+        duration: 0,
+        iconClass: 'el-icon-loading'
+      })
+
+      try {
+        // 调用批量上传接口 POST /ss/files/upload/batch?module=items
+        imageUrls = await uploadImagesReturnUrls(filesToUpload, 'items')
+        uploadMsg.close()
+        console.log('图片上传成功，返回的 URL 列表:', imageUrls)
+      } catch (uploadError) {
+        uploadMsg.close()
+        ElMessage.error('图片上传失败，请检查网络后重试')
+        console.error('图片上传失败:', uploadError)
+        publishLoading.value = false
+        return
+      }
+      
+      // 合并已上传的图片 URL（编辑模式可能有已存在的URL）和新上传的 URL
+      const existingUrls = form.images.filter(img => !img.raw).map(img => img.url)
+      imageUrls = [...existingUrls, ...imageUrls]
+    } else {
+      // 没有新图片需要上传，使用现有的URL
+      imageUrls = form.images.map(img => img.url)
+    }
+
+    // 4. 提交物品信息到后端
+    const submitMsg = ElMessage({
+      message: isEdit ? '正在更新物品信息...' : '正在发布物品...',
       type: 'info',
       duration: 0,
       iconClass: 'el-icon-loading'
     })
 
     try {
-      // 提取需要上传的文件（只上传有 raw 对象的文件）
-      const filesToUpload = form.images.filter(img => img.raw).map(img => img.raw)
-
-      if (filesToUpload.length > 0) {
-        // 批量上传图片，获取 URL 列表
-        const imageUrls = await uploadImagesReturnUrls(filesToUpload, 'items')
-
-        // 更新表单中的图片 URL
-        form.images = imageUrls.map((url, index) => ({
-          name: `image_${index}`,
-          url: url,
-          uid: Date.now() + index
-        }))
+      // 请求体（对接 POST /is/items 新增物品接口）
+      const payload = {
+        title: form.title,
+        description: form.description,
+        categoryId: Number(form.category),
+        conditionLevel: form.condition,
+        images: imageUrls,
+        price: Number(form.price),
+        location: form.location,
+        address: form.address || ''
       }
 
-      loadingInstance.close()
-      loadingInstance.message = isEdit ? '图片上传成功，正在更新...' : '图片上传成功，正在发布...'
-    } catch (uploadError) {
-      loadingInstance.close()
-      ElMessage.error('图片上传失败，请重试')
-      console.error('Error uploading images:', uploadError)
-      return
-    }
-
-    // 请求体（对接 POST 新增 / PUT 更新）
-    const payload = {
-      title: form.title,
-      description: form.description,
-      categoryId: Number(form.category),
-      conditionLevel: form.condition,
-      images: form.images.map(img => img.url),
-      price: Number(form.price),
-      location: form.location,
-      address: form.address || '',
-      tradeNotes: form.tradeNotes || ''
-    }
-
-    if (isEdit) {
-      const id = String(editItemId.value)
-      await updateItem(id, { ...payload, id })
-      ElMessage.success('物品更新成功！')
-      router.push(`/items/${editItemId.value}`)
-    } else {
-      const itemId = await publishItem(payload)
-      ElMessage.success('物品发布成功！')
-      const draftKey = getDraftKey()
-      localStorage.removeItem(draftKey)
-      router.push(`/items/${itemId}`)
+      if (isEdit) {
+        // 更新模式：需要传递 id
+        const id = String(editItemId.value)
+        await updateItem(id, { ...payload, id: Number(id) })
+        submitMsg.close()
+        ElMessage.success('物品更新成功！')
+        router.push(`/items/${editItemId.value}`)
+      } else {
+        // 新增模式：调用 POST /is/items 接口，返回新创建的物品ID
+        const itemId = await publishItem(payload)
+        submitMsg.close()
+        ElMessage.success('物品发布成功！')
+        
+        // 清除本地草稿
+        const draftKey = getDraftKey()
+        localStorage.removeItem(draftKey)
+        
+        // 跳转到物品详情页
+        router.push(`/items/${itemId}`)
+      }
+    } catch (submitError) {
+      submitMsg.close()
+      // 不显示通用的"发布失败"提示，request.ts 会自动显示具体错误
+      console.error(isEdit ? '更新物品失败:' : '发布物品失败:', submitError)
+      publishLoading.value = false
     }
 
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(isEditMode.value ? '更新失败，请重试' : '发布失败，请重试')
-      console.error(isEditMode.value ? 'Error updating item:' : 'Error publishing item:', error)
+    // 用户取消发布操作
+    if (error === 'cancel') {
+      console.log('用户取消了发布操作')
+    } else {
+      console.error('发布过程出错:', error)
     }
-  } finally {
     publishLoading.value = false
   }
 }
@@ -752,9 +783,7 @@ const loadEditItem = async () => {
       category: String(editData.categoryId || editData.category || ''),
       condition: conditionValue,
       description: editData.description || '',
-      tradeNotes: editData.tradeNotes || '',
       price: editData.price ? Number(editData.price) : null,
-      negotiable: editData.isNegotiable ?? false,
       location: editData.location || '',
       address: editData.address || ''
     })
@@ -1115,14 +1144,8 @@ onUnmounted(() => {
   padding: 32px 24px 24px;
 }
 
-.price-input-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
 .price-input {
-  flex: 1;
+  width: 100%;
 }
 
 .price-input :deep(.el-input__wrapper) {
@@ -1140,15 +1163,22 @@ onUnmounted(() => {
   font-size: 16px;
   font-weight: 600;
   color: #03a688;
+  margin-right: 8px;
+}
+
+.price-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .price-tip {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 12px;
   font-size: 13px;
   color: #e6a23c;
+  white-space: nowrap;
 }
 
 .tip-icon {
