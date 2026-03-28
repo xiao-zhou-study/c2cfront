@@ -293,11 +293,10 @@ defineExpose({
 
 <style scoped>
 .register-section {
-  flex: 0 0 440px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 48px 40px;
+  padding: 0;
   background: transparent;
   position: relative;
 }
@@ -305,19 +304,7 @@ defineExpose({
 .register-card {
   width: 100%;
   max-width: 400px;
-  animation: fadeInUp 0.5s ease-out both;
   position: relative;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .register-header {

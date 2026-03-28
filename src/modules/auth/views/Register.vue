@@ -38,14 +38,18 @@ onMounted(() => {
   background-size: cover;
   background-attachment: fixed;
   display: flex;
-  align-items: center;
   justify-content: center;
   padding: 20px;
   position: relative;
   overflow: hidden;
 }
 
-/* 添加液态玻璃效果遮罩层 */
+/* 让 auth-card 居中 */
+.auth-card {
+  margin: auto;
+}
+
+/* 静态渐变光晕层 */
 .auth-container::before {
   content: '';
   position: absolute;
@@ -53,11 +57,23 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, 
-    rgba(3, 166, 136, 0.15) 0%, 
-    rgba(2, 138, 115, 0.2) 50%,
-    rgba(3, 166, 136, 0.12) 100%);
+  background: radial-gradient(ellipse at 20% 20%, rgba(3, 166, 136, 0.12) 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 80%, rgba(4, 199, 158, 0.1) 0%, transparent 50%);
   z-index: 0;
+  pointer-events: none;
+}
+
+/* 静态白色光泽层 */
+.auth-container::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+  z-index: 0;
+  pointer-events: none;
 }
 
 /* 左上角品牌信息 */
@@ -106,28 +122,53 @@ onMounted(() => {
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* 液态玻璃卡片 */
+/* 玻璃卡片 */
 .auth-card {
   max-width: 520px;
   width: 100%;
-  background: rgba(255, 255, 255, 0.85);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.25) 0%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.2) 100%);
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
   border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.08),
-    0 2px 8px rgba(3, 166, 136, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0 8px 32px rgba(3, 166, 136, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    inset 0 1px 1px rgba(255, 255, 255, 0.6),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.2);
   padding: 40px 40px 40px;
   animation: slideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   z-index: 1;
   max-height: 92vh;
   overflow-y: auto;
+  overflow-x: hidden;
+  margin: auto;
 }
 
-/* 液态光泽效果 */
+/* 静态旋转光晕 */
+.auth-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(from 0deg at 50% 50%,
+    transparent 0deg,
+    rgba(3, 166, 136, 0.06) 60deg,
+    transparent 120deg,
+    rgba(4, 199, 158, 0.05) 180deg,
+    transparent 240deg,
+    rgba(3, 166, 136, 0.04) 300deg,
+    transparent 360deg);
+  z-index: -1;
+}
+
+/* 顶部光泽效果 */
 .auth-card::after {
   content: '';
   position: absolute;
@@ -135,8 +176,8 @@ onMounted(() => {
   left: 0;
   right: 0;
   height: 50%;
-  background: linear-gradient(180deg, 
-    rgba(255, 255, 255, 0.4) 0%, 
+  background: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.35) 0%,
     rgba(255, 255, 255, 0) 100%);
   border-radius: 28px 28px 0 0;
   pointer-events: none;
@@ -275,9 +316,14 @@ onMounted(() => {
     margin-bottom: 24px;
     justify-content: center;
   }
-  
+
   .auth-card {
     padding: 28px 20px;
+    border-radius: 22px;
+  }
+
+  .auth-card::after {
+    border-radius: 22px 22px 0 0;
   }
 }
 </style>
