@@ -361,9 +361,8 @@ const loadReviews = async () => {
       })
     } else {
       response = await getMyReviews({
-        page: currentPage.value,
+        pageNum: currentPage.value,
         pageSize: pageSize.value,
-        rating: currentFilter.value === 'all' ? undefined : parseInt(currentFilter.value),
         sortBy: sortBy.value
       })
     }

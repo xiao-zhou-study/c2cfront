@@ -90,10 +90,10 @@
         </el-icon>
       </div>
       <h3 class="empty-title">
-        暂无收到的评价
+        暂无评价记录
       </h3>
       <p class="empty-description">
-        您还没有收到任何评价，继续努力吧！
+        您还没有进行过评价，去看看有什么想买的吧！
       </p>
     </div>
 
@@ -108,20 +108,35 @@
         class="review-card"
         :style="{ animationDelay: `${index * 0.05}s` }"
       >
+        <div class="review-item-card" @click="openItem(review.itemId)">
+          <img
+            v-if="review.itemImage"
+            :src="review.itemImage"
+            :alt="review.itemName"
+            class="review-item-img"
+          >
+          <div v-else class="review-item-placeholder">
+            <el-icon><Picture /></el-icon>
+          </div>
+          <div class="review-item-info">
+            <span class="review-item-name">{{ review.itemName }}</span>
+          </div>
+        </div>
+
         <div class="review-header">
           <div class="reviewer-info">
             <img
-              :src="review.reviewer.avatar"
-              :alt="review.reviewer.name"
+              :src="review.reviewerAvatar || defaultAvatar"
+              :alt="review.reviewerName"
               class="reviewer-avatar"
             >
             <div class="reviewer-details">
               <div class="reviewer-name">
-                {{ review.reviewer.name }}
+                {{ review.isAnonymous ? '匿名用户' : review.reviewerName }}
               </div>
               <div class="review-date">
                 <el-icon><Clock /></el-icon>
-                {{ formatDate(review.created_at) }}
+                {{ formatTimestamp(review.createdAt) }}
               </div>
             </div>
           </div>
@@ -142,42 +157,20 @@
         </div>
 
         <div class="review-content">
-          <p>{{ review.comment }}</p>
-        </div>
-
-        <div class="review-item-info">
-          <div class="item-info">
-            <el-icon><Box /></el-icon>
-            <span>{{ review.item.name }}</span>
-          </div>
-          <div class="review-actions">
-            <el-button
-              v-if="!review.replied"
-              type="primary"
-              @click="replyReview(review.id)"
-            >
-              <el-icon><ChatLineRound /></el-icon>
-              回复
-            </el-button>
-          </div>
+          <p>{{ review.content || '暂无内容' }}</p>
         </div>
 
         <div
-          v-if="review.reply"
-          class="review-reply"
+          v-if="review.images && review.images.length"
+          class="review-images"
         >
-          <div class="reply-header">
-            <div class="reply-label">
-              <el-icon><ChatDotRound /></el-icon>
-              我的回复
-            </div>
-            <div class="reply-date">
-              {{ formatDate(review.reply.created_at) }}
-            </div>
-          </div>
-          <div class="reply-content">
-            {{ review.reply.content }}
-          </div>
+          <img
+            v-for="(img, i) in review.images"
+            :key="i"
+            :src="img"
+            :alt="`评价图片${i + 1}`"
+            class="review-image-img"
+          >
         </div>
       </div>
     </div>
@@ -194,8 +187,7 @@ import {
   Clock,
   Star,
   StarFilled,
-  Box,
-  ChatLineRound
+  Picture
 } from '@element-plus/icons-vue'
 
 const props = defineProps({
@@ -214,6 +206,7 @@ const emit = defineEmits(['refresh', 'reply-review'])
 const ratingFilter = ref('all')
 const searchKeyword = ref('')
 const refreshLoading = ref(false)
+const defaultAvatar = 'https://via.placeholder.com/48x48?text=U'
 
 const filteredReviews = computed(() => {
   let reviews = props.reviewRecords
@@ -227,16 +220,15 @@ const filteredReviews = computed(() => {
   if (searchKeyword.value.trim()) {
     const keyword = searchKeyword.value.toLowerCase()
     reviews = reviews.filter(review =>
-      review.comment && review.comment.toLowerCase().includes(keyword) ||
-      review.item.name && review.item.name.toLowerCase().includes(keyword)
+      review.content && review.content.toLowerCase().includes(keyword)
     )
   }
 
   return reviews
 })
 
-const formatDate = (dateString) => {
-  const date = new Date(dateString)
+function formatTimestamp(ts) {
+  const date = new Date(typeof ts === 'string' ? parseInt(ts) : ts)
   return date.toLocaleDateString('zh-CN', {
     year: 'numeric',
     month: '2-digit',
@@ -250,6 +242,12 @@ const filterReviews = () => {
   // 触发计算属性重新计算
 }
 
+const openItem = (itemId) => {
+  if (itemId) {
+    window.open(`/items/${itemId}`, '_blank')
+  }
+}
+
 const refreshReviewRecords = async () => {
   try {
     refreshLoading.value = true
@@ -260,10 +258,6 @@ const refreshReviewRecords = async () => {
   } finally {
     refreshLoading.value = false
   }
-}
-
-const replyReview = (id) => {
-  emit('reply-review', id)
 }
 </script>
 
@@ -430,6 +424,59 @@ const replyReview = (id) => {
   transform: scale(1.05);
 }
 
+/* 评价物品信息 */
+.review-item-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 0;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.review-item-card:hover {
+  background: rgba(3, 166, 136, 0.04);
+}
+
+.review-item-img {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #f5f5f5;
+}
+
+.review-item-placeholder {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c0c4cc;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.review-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.review-item-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+
 /* 头部区域 */
 .review-header {
   display: flex;
@@ -520,89 +567,26 @@ const replyReview = (id) => {
   font-size: 14px;
 }
 
-/* 物品信息 */
-.review-item-info {
+/* 评价图片 */
+.review-images {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-top: 1px solid #F5F7FA;
-  background: linear-gradient(135deg, #fafafa 0%, #ffffff 100%);
-}
-
-.item-info {
-  display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
-  color: #909399;
-  font-size: 13px;
+  padding: 0 20px 16px;
 }
 
-.item-info .el-icon {
-  font-size: 16px;
-  color: #409EFF;
-}
-
-.review-actions {
-  display: flex;
-}
-
-:deep(.review-actions .el-button) {
-  padding: 8px 20px;
-  font-size: 13px;
+.review-image-img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
   border-radius: 8px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  transition: all 0.3s;
 }
 
-:deep(.review-actions .el-button:hover) {
-  transform: translateY(-2px);
+.review-image-img:hover {
+  transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-:deep(.review-actions .el-button .el-icon) {
-  margin-right: 4px;
-  font-size: 14px;
-}
-
-/* 回复区域 */
-.review-reply {
-  margin: 0 20px 20px;
-  padding: 16px;
-  background: linear-gradient(135deg, #F0F7FF 0%, #F5F9FF 100%);
-  border-radius: 12px;
-  border-left: 4px solid #409EFF;
-}
-
-.reply-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.reply-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  color: #409EFF;
-  font-size: 13px;
-}
-
-.reply-label .el-icon {
-  font-size: 14px;
-}
-
-.reply-date {
-  color: #909399;
-  font-size: 12px;
-}
-
-.reply-content {
-  margin: 0;
-  color: #606266;
-  font-size: 14px;
-  line-height: 1.6;
 }
 
 /* 响应式设计 */

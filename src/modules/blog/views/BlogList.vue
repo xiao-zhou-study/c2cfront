@@ -73,11 +73,7 @@
               <el-icon><ChatLineRound /></el-icon>
               {{ topic.replyCount }} 条回复
             </span>
-            <span class="topic-views">
-              <el-icon><View /></el-icon>
-              {{ topic.viewCount }} 浏览
-            </span>
-          </div>
+                      </div>
         </div>
         <div class="topic-arrow">
           <el-icon><ArrowRight /></el-icon>
@@ -90,7 +86,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { EditPen, Search, ArrowRight, User, Collection, Clock, ChatLineRound, View } from '@element-plus/icons-vue'
+import { EditPen, Search, ArrowRight, User, Collection, Clock, ChatLineRound } from '@element-plus/icons-vue'
 import { blogApi } from '@/shared/api'
 import { ElMessage } from 'element-plus'
 import { formatTimeAgo } from '@/shared/utils/format'

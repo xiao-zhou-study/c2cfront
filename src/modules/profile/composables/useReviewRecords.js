@@ -1,25 +1,55 @@
 import { ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getUserAvatar } from '@/shared/utils/images.js'
+import { reviewApi, itemApi } from '@/shared/api'
 
 export function useReviewRecords() {
   const reviewRecords = ref([])
   const loading = ref(false)
+  const total = ref(0)
+  const pageNum = ref(1)
+  const pageSize = ref(10)
 
   // 获取评价记录
   const getReviewRecords = async () => {
     try {
       loading.value = true
-      // 模拟API请求
-      await new Promise(resolve => setTimeout(resolve, 800))
-      
-      // 模拟数据
-      reviewRecords.value = []
-      
+      const res = await reviewApi.getMyReviews({
+        pageNum: pageNum.value,
+        pageSize: pageSize.value
+      })
+      const list = res?.list ?? []
+      total.value = res?.total ?? 0
+
+      // 批量查询物品信息
+      const itemIds = [...new Set(list.map(r => r.itemId).filter(Boolean))]
+      const itemMap = {}
+      if (itemIds.length > 0) {
+        const results = await Promise.allSettled(
+          itemIds.map(id => itemApi.getItemDetail(id))
+        )
+        results.forEach((result, i) => {
+          if (result.status === 'fulfilled' && result.value) {
+            itemMap[itemIds[i]] = result.value
+          }
+        })
+      }
+
+      // 将物品信息注入评价记录
+      reviewRecords.value = list.map(review => {
+        const item = itemMap[review.itemId]
+        return {
+          ...review,
+          itemName: item?.title || '未知物品',
+          itemImage: item?.images?.[0] || ''
+        }
+      })
+
       return reviewRecords.value
     } catch (error) {
-      ElMessage.error('获取评价记录失败')
       console.error('获取评价记录失败:', error)
+      reviewRecords.value = []
+      total.value = 0
       throw error
     } finally {
       loading.value = false

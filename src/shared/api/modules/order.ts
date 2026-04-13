@@ -6,6 +6,32 @@
 import { request } from '../request'
 import type { BorrowOrder, OrderLog, PageResponse, OrderCreateRequest, CreateBorrowOrderRequest } from '../../types/models'
 
+/** 卖出订单列表项（对应 GET /os/borrow_orders/page/out） */
+export interface LendOrderItem {
+  id: string
+  itemId: string
+  itemName: string
+  itemImageUrl: string[]
+  buyerId: string
+  buyerName: string
+  buyerAvatarUrl: string
+  sellerId: string
+  sellerName: string
+  sellerAvatarUrl: string
+  title: string
+  price: number
+  status: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+  purpose?: string
+  confirmTime?: number
+  payTime?: number
+  payTradeNo?: string
+  borrowTime?: number
+  cancelReason?: string
+  version: number
+  createdAt: number
+  updatedAt: number
+}
+
 /**
  * 创建借用订单（对接 POST /os/borrow_orders/create）
  * @returns 订单唯一 ID（字符串）
@@ -15,37 +41,22 @@ export function createBorrowOrder(data: CreateBorrowOrderRequest): Promise<strin
 }
 
 /**
+ * 创建购买订单（对接 POST /borrow_orders/create）
+ * @param itemId 物品ID
+ * @returns 订单ID
+ */
+export function createPurchaseOrder(itemId: string | number): Promise<string> {
+  return request.post<string>('/os/borrow_orders/create', null, { params: { itemId } })
+}
+
+/**
  * 创建借用订单（旧版兼容，请使用 createBorrowOrder）
  */
 export function createOrder(data: OrderCreateRequest): Promise<{id: string}> {
   return request.post('/os', data)
 }
 
-/**
- * 分页获取我借用的订单（当前用户作为借用人）
- * GET /os/borrow_orders/page/in
- */
-export function getBorrowOrdersPageIn(params: {
-  pageNo?: number
-  pageSize?: number
-  status?: number
-  keyword?: string
-  startTime?: number
-  endTime?: number
-  sortBy?: string
-  isAsc?: boolean
-}): Promise<{ total: number; pages: number; list: BorrowOrder[] }> {
-  return request.get('/os/borrow_orders/page/in', { params }).then((data: any) => {
-    const list = (data?.list ?? []).map((item: any) => adaptBorrowOrderFromPage(item))
-    return {
-      total: data?.total ?? 0,
-      pages: data?.pages ?? 0,
-      list
-    }
-  })
-}
-
-/** 后端分页订单项转为前端 BorrowOrder（id 转字符串、billingType 数字转字符串、保留 lenderName） */
+/** 后端分页订单项转为前端 BorrowOrder（id 转字符串、billingType 数字转字符串） */
 function adaptBorrowOrderFromPage(item: any): BorrowOrder {
   const billingMap: Record<number, 'per_day' | 'per_week' | 'per_month'> = {
     1: 'per_day',
@@ -66,6 +77,78 @@ function adaptBorrowOrderFromPage(item: any): BorrowOrder {
   } as BorrowOrder
 }
 
+/** 买到订单列表项（对应 GET /os/borrow_orders/page/in） */
+export interface BorrowOrderItem {
+  id: string
+  itemId: string
+  itemName: string
+  itemImageUrl: string[]
+  buyerId: string
+  buyerName: string
+  buyerAvatarUrl: string
+  sellerId: string
+  sellerName: string
+  sellerAvatarUrl: string
+  title: string
+  price: number
+  status: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+  purpose?: string
+  confirmTime?: number
+  payTime?: number
+  payTradeNo?: string
+  borrowTime?: number
+  cancelReason?: string
+  version: number
+  createdAt: number
+  updatedAt: number
+}
+
+/** 后端分页订单项转为前端 BorrowOrderItem */
+function adaptBorrowOrderItem(item: any) {
+  return {
+    ...item,
+    id: String(item.id ?? ''),
+    itemId: String(item.itemId ?? ''),
+    buyerId: String(item.buyerId ?? ''),
+    sellerId: String(item.sellerId ?? '')
+  }
+}
+
+/**
+ * 分页获取我借用的订单（当前用户作为借用人）
+ * GET /os/borrow_orders/page/in
+ */
+export function getBorrowOrdersPageIn(params: {
+  pageNo?: number
+  pageSize?: number
+  status?: number
+  keyword?: string
+  startTime?: number
+  endTime?: number
+  sortBy?: string
+  isAsc?: boolean
+}): Promise<{ total: number; pages: number; list: BorrowOrderItem[] }> {
+  return request.get('/os/borrow_orders/page/in', { params }).then((data: any) => {
+    const list = (data?.list ?? []).map((item: any) => adaptBorrowOrderItem(item))
+    return {
+      total: data?.total ?? 0,
+      pages: data?.pages ?? 0,
+      list
+    }
+  })
+}
+
+/** 后端分页订单项转为前端 LendOrderItem（只做 id 转字符串） */
+function adaptLendOrderItem(item: any) {
+  return {
+    ...item,
+    id: String(item.id ?? ''),
+    itemId: String(item.itemId ?? ''),
+    buyerId: String(item.buyerId ?? ''),
+    sellerId: String(item.sellerId ?? '')
+  }
+}
+
 /** 后端详情接口返回转为前端 BorrowOrder（对接 GET /os/borrow_orders/detail） */
 function adaptBorrowOrderFromDetail(data: any): BorrowOrder {
   const billingMap: Record<number, 'per_day' | 'per_week' | 'per_month'> = {
@@ -82,8 +165,11 @@ function adaptBorrowOrderFromDetail(data: any): BorrowOrder {
     billingType: billingMap[data.billingType] ?? 'per_day',
     lenderName: data.lenderName,
     lenderAvatar: data.lenderAvatar,
-    borrowerName: data.borrowerName,
-    borrowerAvatar: data.borrowerAvatar,
+    // 后端接口字段兼容：buyerName/buyerAvatarUrl → borrowerName/borrowerAvatar
+    borrowerName: data.borrowerName ?? data.buyerName,
+    borrowerAvatar: data.borrowerAvatar ?? data.buyerAvatarUrl,
+    // 物品图片列表
+    itemImages: data.itemImageUrl,
     orderNo: data.orderNo,
     version: data.version,
     payTradeNo: data.payTradeNo,
@@ -137,7 +223,7 @@ export function rejectBorrowOrder(orderNo: string, reason: string, version: numb
  * @param version 乐观锁版本号（通过列表或详情接口获取）
  */
 export function cancelBorrowOrder(orderNo: string, version: number): Promise<void> {
-  return request.put('/os/borrow_orders/cancel', { orderNo, version })
+  return request.put('/os/borrow_orders/cancel', { id: orderNo, version })
 }
 
 /** 支付接口返回：SUCCESS 或支付表单（HTML 或 结构化表单） */
@@ -150,7 +236,7 @@ export type PayBorrowOrderResult = string | { formHtml?: string; method?: string
  * @returns 成功时返回 "SUCCESS"；需跳转支付时返回表单 HTML 或 { method, action, fields }
  */
 export function payBorrowOrder(orderNo: string, version: number): Promise<PayBorrowOrderResult> {
-  return request.put<PayBorrowOrderResult>('/os/borrow_orders/pay', { orderNo, version })
+  return request.put<PayBorrowOrderResult>('/os/borrow_orders/pay', { id: orderNo, version })
 }
 
 /**
@@ -166,9 +252,9 @@ export function getBorrowOrdersPageOut(params: {
   endTime?: number
   sortBy?: string
   isAsc?: boolean
-}): Promise<{ total: number; pages: number; list: BorrowOrder[] }> {
+}): Promise<{ total: number; pages: number; list: LendOrderItem[] }> {
   return request.get('/os/borrow_orders/page/out', { params }).then((data: any) => {
-    const list = (data?.list ?? []).map((item: any) => adaptBorrowOrderFromPage(item))
+    const list = (data?.list ?? []).map((item: any) => adaptLendOrderItem(item))
     return {
       total: data?.total ?? 0,
       pages: data?.pages ?? 0,
@@ -235,23 +321,27 @@ export function startBorrow(orderId: string): Promise<boolean> {
 }
 
 /**
- * 借用人发起归还申请（对接 PUT /os/borrow_orders/return）
- * 执行后订单状态流转至「待归还确认」，等待出借人核验物品。
- * @param orderNo 借用订单编号（商户单号）
- * @param version 乐观锁版本号（通过列表或详情接口获取）
+ * 买家确认收货（对接 PUT /os/borrow_orders/confirm）
+ * @param orderNo 订单编号
+ * @param version 乐观锁版本号
  */
-export function applyReturnBorrowOrder(orderNo: string, version: number): Promise<void> {
-  return request.put('/os/borrow_orders/return', { orderNo, version })
+export function confirmReceiveOrder(orderNo: string, version: number): Promise<void> {
+  return request.put('/os/borrow_orders/confirm', { id: orderNo, version })
 }
 
 /**
- * 出借人确认归还（对接 PUT /os/borrow_orders/confirm）
- * 出借人核验物品无误后调用，订单状态流转至「已完成」，需传 orderNo + version 做乐观锁校验。
- * @param orderNo 借用订单编号（商户单号）
- * @param version 乐观锁版本号（通过列表或详情接口获取）
+ * 评价订单（对接 POST /os/borrow_orders/review）
+ * @param orderNo 订单编号
+ * @param data 评分(1-5)、评价内容、图片、是否匿名
  */
-export function confirmReturnBorrowOrder(orderNo: string, version: number): Promise<void> {
-  return request.put('/os/borrow_orders/confirm', { orderNo, version })
+export function reviewOrder(data: {
+  id: string
+  rating: number
+  content?: string
+  images?: string[]
+  isAnonymous?: boolean
+}): Promise<number> {
+  return request.post('/os/borrow_orders/review', data)
 }
 
 /**

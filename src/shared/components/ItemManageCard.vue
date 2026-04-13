@@ -184,20 +184,20 @@ const getActionButtonType = (action) => {
 // 状态文本和样式
 const statusClass = computed(() => {
   const statusMap = {
-    1: 'available',
-    2: 'borrowed',
+    1: 'for-sale',
+    2: 'sold',
     3: 'offline'
   }
-  return statusMap[props.item.status] || 'available'
+  return statusMap[props.item.status] || 'for-sale'
 })
 
 const statusText = computed(() => {
   const textMap = {
-    1: '可借用',
-    2: '已借出',
+    1: '待售',
+    2: '已售出',
     3: '已下架'
   }
-  return textMap[props.item.status] || '可借用'
+  return textMap[props.item.status] || '待售'
 })
 
 // 计费方式文本
@@ -317,11 +317,11 @@ const handleMoreAction = (command) => {
   backdrop-filter: blur(4px);
 }
 
-.status-available {
+.status-for-sale {
   background: rgba(103, 194, 58, 0.9);
 }
 
-.status-borrowed {
+.status-sold {
   background: rgba(230, 162, 60, 0.9);
 }
 

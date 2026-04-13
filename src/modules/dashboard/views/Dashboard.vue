@@ -43,7 +43,7 @@
             </div>
             <div class="home-rank-info">
               <span class="home-rank-title">{{ item.name }}</span>
-              <span class="home-rank-meta">{{ item.campus }} · 浏览 {{ item.viewCount }} 次</span>
+              <span class="home-rank-meta">{{ item.campus }}</span>
             </div>
           </li>
         </ul>

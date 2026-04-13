@@ -28,11 +28,11 @@
     <main v-else-if="item" class="main">
       <!-- 卖家信息栏 -->
       <div class="owner-bar">
-        <el-avatar :src="item.avatar" :size="44">
-          {{ item.username?.charAt(0) || 'U' }}
+        <el-avatar :src="item.ownerAvatar || item.avatar" :size="44">
+          {{ item.ownerName?.charAt(0) || item.username?.charAt(0) || 'U' }}
         </el-avatar>
         <div class="owner-info">
-          <span class="owner-name">{{ item.username || '未知用户' }}</span>
+          <span class="owner-name">{{ item.ownerName || item.username || '未知用户' }}</span>
           <span class="owner-tip">卖家</span>
         </div>
         <el-button 
@@ -166,7 +166,7 @@
               @click="handleBuy"
             >
               <el-icon><ShoppingCart /></el-icon>
-              <span>{{ isAvailable ? '立即购买' : '已售出' }}</span>
+              <span>{{ isAvailable ? '发起购买申请' : '已售出' }}</span>
             </el-button>
             <el-button
               size="large"
@@ -257,26 +257,36 @@
       :initial-index="currentIndex"
       @close="showViewer = false"
     />
+
+    <!-- 聊天弹窗 -->
+    <ChatDialog
+      v-model="chatVisible"
+      :peer-id="chatPeerId"
+      :peer-name="chatPeerName"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { 
-  Star, Share, ArrowLeft, ArrowRight, 
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  Star, Share, ArrowLeft, ArrowRight,
   ChatDotRound, Location, Calendar, View,
   Document, Position, ShoppingCart
 } from '@element-plus/icons-vue'
-import { itemApi } from '../../../shared/api'
+import { itemApi, orderApi } from '../../../shared/api'
 import { useUserStore } from '../../../shared/stores/user'
+import { useChatStore } from '../../../shared/stores/chat'
 import type { Item } from '../../../shared/types/models'
 import ItemDescription from '../components/ItemDescription.vue'
+import ChatDialog from '../../../shared/components/ChatDialog.vue'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const chatStore = useChatStore()
 
 const loading = ref(false)
 const item = ref<Item | null>(null)
@@ -293,6 +303,21 @@ const DEFAULT_IMG = 'https://via.placeholder.com/600x600?text=暂无图片'
 const AUTOPLAY_MS = 4000
 let autoplayTimer: ReturnType<typeof setInterval> | null = null
 
+// 聊天相关
+const chatVisible = ref(false)
+const chatPeerId = ref('')
+const chatPeerName = ref('')
+
+function openChat() {
+  if (!item.value || !userStore.userId) return
+  const sellerId = String(item.value.ownerId)
+  if (!sellerId || sellerId === 'undefined' || sellerId === 'null') return
+
+  chatPeerId.value = sellerId
+  chatPeerName.value = item.value.ownerName || item.value.username || '卖家'
+  chatVisible.value = true
+}
+
 // 计算属性
 const currentImageUrl = computed(() => {
   const list = item.value?.images
@@ -302,7 +327,6 @@ const currentImageUrl = computed(() => {
 
 const imagesCount = computed(() => item.value?.images?.length ?? 0)
 
-// 物品状态：1-在售, 2-已售出, 3-已下架
 const isAvailable = computed(() => item.value?.status === 1)
 
 const statusText = computed(() => {
@@ -321,10 +345,9 @@ const statusTagType = computed(() => {
   return 'info'
 })
 
-// 判断当前用户是否是物品所有者
 const isOwner = computed(() => {
   if (!item.value || !userStore.userId) return false
-  return String(item.value.userId) === String(userStore.userId)
+  return String(item.value.ownerId) === String(userStore.userId)
 })
 
 // 工具函数
@@ -339,16 +362,16 @@ function formatTime(timestamp: number | string | undefined): string {
   const date = new Date(typeof timestamp === 'string' ? parseInt(timestamp) : timestamp)
   const now = new Date()
   const diff = now.getTime() - date.getTime()
-  
+
   const minute = 60 * 1000
   const hour = 60 * minute
   const day = 24 * hour
-  
+
   if (diff < minute) return '刚刚'
   if (diff < hour) return `${Math.floor(diff / minute)} 分钟前`
   if (diff < day) return `${Math.floor(diff / hour)} 小时前`
   if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`
-  
+
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
@@ -359,6 +382,10 @@ function getFavorites(): string[] {
   } catch {
     return []
   }
+}
+
+function setFavorites(ids: string[]) {
+  localStorage.setItem(FAVORITES_KEY, JSON.stringify(ids))
 }
 
 function getMessagesKey(): string {
@@ -407,10 +434,6 @@ function sendMessage() {
   ElMessage.success('留言已发送')
 }
 
-function setFavorites(ids: string[]) {
-  localStorage.setItem(FAVORITES_KEY, JSON.stringify(ids))
-}
-
 async function loadDetail() {
   const id = route.params.id as string
   if (!id) {
@@ -439,10 +462,10 @@ function handleContact() {
     ElMessage.warning('该物品已售出')
     return
   }
-  ElMessage.info('联系卖家功能开发中，请先通过留言咨询')
+  openChat()
 }
 
-function handleBuy() {
+async function handleBuy() {
   if (!isAvailable.value) {
     ElMessage.warning('该物品已售出')
     return
@@ -451,7 +474,23 @@ function handleBuy() {
     ElMessage.warning('不能购买自己发布的物品')
     return
   }
-  ElMessage.info('购买功能开发中，请先通过留言与卖家沟通')
+  try {
+    await ElMessageBox.confirm(
+      `确定要发起购买申请吗？\n物品：${item.value?.title}\n价格：¥${item.value?.price}`,
+      '确认购买',
+      {
+        confirmButtonText: '确认',
+        cancelButtonText: '取消',
+        type: 'info'
+      }
+    )
+    await orderApi.createPurchaseOrder(item.value!.id!)
+    ElMessage.success('购买申请已提交，请等待卖家审核')
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      console.error('购买失败:', e)
+    }
+  }
 }
 
 function handleFavorite() {
@@ -1089,6 +1128,111 @@ onUnmounted(stopAutoplay)
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* 聊天弹窗 */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 480px;
+}
+
+.chat-status {
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #909399;
+  text-align: center;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.chat-status.chat-connected {
+  color: #67c23a;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #fafafa;
+}
+
+.chat-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #909399;
+  font-size: 14px;
+}
+
+.chat-msg {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.chat-msg.chat-msg-self {
+  flex-direction: row-reverse;
+}
+
+.chat-msg-avatar {
+  flex-shrink: 0;
+}
+
+.chat-msg-avatar .el-avatar {
+  background: #f0f0f0;
+  color: #666;
+  font-size: 12px;
+}
+
+.chat-msg-self .chat-msg-avatar .el-avatar {
+  background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
+  color: white;
+}
+
+.chat-msg-bubble {
+  max-width: 70%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.chat-msg-self .chat-msg-bubble {
+  background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
+  color: #fff;
+}
+
+.chat-msg-content {
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.chat-msg-time {
+  font-size: 11px;
+  color: #909399;
+  margin-top: 4px;
+  text-align: right;
+}
+
+.chat-msg-self .chat-msg-time {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.chat-input-bar {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid #ebeef5;
+  background: #fff;
+}
+
+.chat-input-bar :deep(.el-input__wrapper) {
+  border-radius: 10px;
 }
 
 /* 响应式设计 */

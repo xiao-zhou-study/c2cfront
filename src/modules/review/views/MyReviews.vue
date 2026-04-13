@@ -367,12 +367,11 @@ const emptyDescription = computed(() => {
 const loadSentReviews = async () => {
   try {
     const response = await getMyReviews({
-      page: currentPage.value,
-      pageSize: pageSize.value,
-      rating: filterRating.value ? parseInt(filterRating.value) : undefined
+      pageNum: currentPage.value,
+      pageSize: pageSize.value
     })
 
-    sentReviews.value = response.list || response.data || []
+    sentReviews.value = response.list || []
     sentCount.value = response.total
   } catch (error) {
     console.error('加载发出的评价失败:', error)

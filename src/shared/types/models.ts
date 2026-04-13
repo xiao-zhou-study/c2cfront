@@ -100,9 +100,12 @@ export interface CategoryUpdateRequest {
  */
 export interface Item {
   id: string
-  userId: string // 物品所有者ID（逻辑外键，关联users表id）
+  userId?: string // 物品所有者ID（部分接口返回）
+  ownerId?: string // 物品所有者ID（detail接口返回）
   username?: string // 用户昵称
+  ownerName?: string // 卖家昵称（detail接口返回）
   avatar?: string // 用户头像
+  ownerAvatar?: string // 卖家头像（detail接口返回）
   title: string // 物品标题
   description?: string // 物品详细描述
   categoryId?: string // 物品分类ID
@@ -122,7 +125,6 @@ export interface Item {
   viewCount?: number // 浏览次数
   favoriteCount?: number // 收藏次数
   // 兼容字段（保持向后兼容）
-  ownerId?: string
   name?: string
   createdAt?: number
   updatedAt?: number
@@ -184,6 +186,10 @@ export interface BorrowOrder {
   borrowerName?: string
   /** 借用人头像（分页接口直接返回） */
   borrowerAvatar?: string
+  /** 买家姓名（部分接口返回，与 borrowerName 含义相同） */
+  buyerName?: string
+  /** 买家头像（部分接口返回） */
+  buyerAvatarUrl?: string
   /** 物品名称（列表/详情接口返回） */
   itemName?: string
   /** 物品图片列表（列表/详情接口返回） */

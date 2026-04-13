@@ -48,11 +48,11 @@ export function getUserReviews(userId: string, params?: {
  * 获取我发出的评价列表
  */
 export function getMyReviews(params?: {
-  page?: number
+  pageNum?: number
   pageSize?: number
-  rating?: number
   sortBy?: string
-}): Promise<PageResponse<Review>> {
+  isAsc?: boolean
+}): Promise<{ list: Review[]; total: number; pageNum: number; pageSize: number }> {
   return request.get('/rs/reviews/my-reviews', params ? { params } : undefined)
 }
 
