@@ -20,7 +20,7 @@ export interface LendOrderItem {
   sellerAvatarUrl: string
   title: string
   price: number
-  status: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+  status: 1 | 2 | 3 | 4 | 5 | 6 | 7
   purpose?: string
   confirmTime?: number
   payTime?: number
@@ -91,7 +91,7 @@ export interface BorrowOrderItem {
   sellerAvatarUrl: string
   title: string
   price: number
-  status: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+  status: 1 | 2 | 3 | 4 | 5 | 6 | 7
   purpose?: string
   confirmTime?: number
   payTime?: number

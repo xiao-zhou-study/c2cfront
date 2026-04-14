@@ -16,7 +16,6 @@
         <el-radio-button :label="5">已完成</el-radio-button>
         <el-radio-button :label="6">已取消</el-radio-button>
         <el-radio-button :label="7">已拒绝</el-radio-button>
-        <el-radio-button :label="8">争议中</el-radio-button>
       </el-radio-group>
     </div>
 
@@ -287,8 +286,7 @@ const getStatusText = (status: number) => {
     4: '待归还确认',
     5: '已完成',
     6: '已取消',
-    7: '已拒绝',
-    8: '争议中'
+    7: '已拒绝'
   }
   return statusMap[status] ?? '未知'
 }
@@ -301,8 +299,7 @@ const getStatusType = (status: number) => {
     4: 'info',
     5: 'success',
     6: 'info',
-    7: 'danger',
-    8: 'danger'
+    7: 'danger'
   }
   return typeMap[status] ?? ''
 }
@@ -350,7 +347,6 @@ const formatDate = (timestamp: number) => {
         <el-radio-button :label="5">已完成</el-radio-button>
         <el-radio-button :label="6">已取消</el-radio-button>
         <el-radio-button :label="7">已拒绝</el-radio-button>
-        <el-radio-button :label="8">争议中</el-radio-button>
       </el-radio-group>
     </div>
 
@@ -592,8 +588,7 @@ const getStatusText = (status: number) => {
     4: '待归还确认',
     5: '已完成',
     6: '已取消',
-    7: '已拒绝',
-    8: '争议中'
+    7: '已拒绝'
   }
   return statusMap[status] ?? '未知'
 }
@@ -606,8 +601,7 @@ const getStatusType = (status: number) => {
     4: 'info',
     5: 'success',
     6: 'info',
-    7: 'danger',
-    8: 'danger'
+    7: 'danger'
   }
   return typeMap[status] ?? ''
 }

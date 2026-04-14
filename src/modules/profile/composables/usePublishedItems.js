@@ -35,7 +35,7 @@ export function usePublishedItems() {
   const toggleItemStatus = async (item) => {
     try {
       const status = item.status
-      // 状态映射：1-可借用, 2-已借出, 3-已下架
+      // 状态映射：1-待售, 2-已售出, 3-已下架
       // 1 <-> 3 互相切换（上架/下架）
       const newStatus = status === 1 ? 3 : 1
 
@@ -100,7 +100,7 @@ export function usePublishedItems() {
   const getItemStatusText = (status) => {
     const textMap = {
       1: '上架中',
-      2: '已借出',
+      2: '已售出',
       3: '已下架'
     }
     return textMap[status] || '未知'

@@ -247,8 +247,8 @@ const getStatusType = (status: number) => {
 
 const getStatusText = (status: number) => {
   const textMap: Record<number, string> = {
-    1: '可借用',
-    2: '已借出',
+    1: '待售',
+    2: '已售出',
     3: '已下架'
   }
   return textMap[status] || '未知'
@@ -490,8 +490,8 @@ const getStatusType = (status: number) => {
 
 const getStatusText = (status: number) => {
   const textMap: Record<number, string> = {
-    1: '可借用',
-    2: '已借出',
+    1: '待售',
+    2: '已售出',
     3: '已下架'
   }
   return textMap[status] || '未知'

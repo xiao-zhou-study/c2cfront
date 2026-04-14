@@ -86,9 +86,9 @@ const campusAnnouncements = ref([])
 const campusTopics = ref([])
 // 默认热门商品数据，接口异常时作为回退
 const shareRankList = ref([
-  { id: 1, name: 'iPad Pro 11 英寸 2022', viewCount: 36, campus: '东校区', cover: 'https://via.placeholder.com/80x60?text=Item' },
-  { id: 2, name: '佳能微单相机 EOS M50', viewCount: 24, campus: '西校区', cover: 'https://via.placeholder.com/80x60?text=Item' },
-  { id: 3, name: '蓝牙音箱（宿舍学习伴侣）', viewCount: 19, campus: '南校区', cover: 'https://via.placeholder.com/80x60?text=Item' }
+  { id: 1, name: 'iPad Pro 11 英寸 2022', viewCount: 36, campus: '东校区', cover: '' },
+  { id: 2, name: '佳能微单相机 EOS M50', viewCount: 24, campus: '西校区', cover: '' },
+  { id: 3, name: '蓝牙音箱（宿舍学习伴侣）', viewCount: 19, campus: '南校区', cover: '' }
 ])
 
 // 获取前三个话题
@@ -163,7 +163,7 @@ async function fetchShareRankList() {
       campus: item.location || '未指定校区',
       cover: Array.isArray(item.images) && item.images.length > 0
         ? item.images[0]
-        : 'https://via.placeholder.com/80x60?text=Item'
+        : ''
     }))
   } catch (error) {
     console.error('获取热门商品排行榜失败:', error)

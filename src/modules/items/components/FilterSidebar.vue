@@ -68,16 +68,16 @@
                 全部状态
               </el-radio>
               <el-radio
-                :label="ITEM_STATUS.AVAILABLE"
+                :label="ITEM_STATUS.FOR_SALE"
                 class="status-radio"
               >
-                可借用
+                待售
               </el-radio>
               <el-radio
-                :label="ITEM_STATUS.BORROWED"
+                :label="ITEM_STATUS.SOLD"
                 class="status-radio"
               >
-                已借出
+                已售出
               </el-radio>
             </el-radio-group>
           </div>

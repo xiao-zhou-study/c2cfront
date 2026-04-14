@@ -11,11 +11,11 @@
         </el-radio-button>
         <el-radio-button :label="1">
           <el-icon><CircleCheckFilled /></el-icon>
-          可借用
+          待售
         </el-radio-button>
         <el-radio-button :label="2">
           <el-icon><WarningFilled /></el-icon>
-          已借出
+          已售出
         </el-radio-button>
         <el-radio-button :label="3">
           <el-icon><RemoveFilled /></el-icon>

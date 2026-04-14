@@ -121,7 +121,7 @@ export interface Item {
   location?: string // 物品所在位置
   address?: string // 详细地址
   borrowConditions?: string // 借用条件
-  status?: 1 | 2 | 3 // 物品状态：1-可借用, 2-已借出, 3-已下架
+  status?: 1 | 2 | 3 // 物品状态：1-待售, 2-已售出, 3-已下架
   viewCount?: number // 浏览次数
   favoriteCount?: number // 收藏次数
   // 兼容字段（保持向后兼容）
@@ -167,7 +167,7 @@ export interface BorrowOrder {
   borrowDays: number
   totalAmount: number
   purpose?: string
-  status: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 // 1-待确认 2-待付款 3-借用中 4-待归还确认 5-已完成 6-已取消 7-已拒绝 8-争议中
+  status: 1 | 2 | 3 | 4 | 5 | 6 | 7 // 1-待确认 2-待付款 3-借用中 4-待归还确认 5-已完成 6-已取消 7-已拒绝
   borrowTime?: number
   returnTime?: number
   actualReturnTime?: number

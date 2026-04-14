@@ -270,10 +270,9 @@ const submitReply = async () => {
 
 const getStatusText = (status: string) => {
   const statusMap = {
-    available: '可用',
-    reserved: '已预留',
-    borrowed: '已借出',
-    unavailable: '不可用'
+    for_sale: '待售',
+    sold: '已售出',
+    off_shelf: '已下架'
   }
   return statusMap[status] || status
 }

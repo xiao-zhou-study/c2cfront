@@ -16,7 +16,7 @@ export const STORAGE_KEY = {
 export const PAGE_SIZE = 12
 export const PAGE_SIZES = [12, 24, 48, 96]
 
-// 订单状态（与后端一致：1-8）
+// 订单状态（与后端一致：1-7）
 export const ORDER_STATUS = {
   PENDING: 1,              // 待确认
   WAIT_PAY: 2,             // 待付款
@@ -24,8 +24,7 @@ export const ORDER_STATUS = {
   WAIT_RETURN_CONFIRM: 4,   // 待归还确认
   COMPLETED: 5,            // 已完成
   CANCELLED: 6,            // 已取消
-  REJECTED: 7,             // 已拒绝
-  DISPUTE: 8               // 争议中
+  REJECTED: 7              // 已拒绝
 } as const
 
 export const ORDER_STATUS_TEXT = {
@@ -35,8 +34,7 @@ export const ORDER_STATUS_TEXT = {
   [ORDER_STATUS.WAIT_RETURN_CONFIRM]: '待归还确认',
   [ORDER_STATUS.COMPLETED]: '已完成',
   [ORDER_STATUS.CANCELLED]: '已取消',
-  [ORDER_STATUS.REJECTED]: '已拒绝',
-  [ORDER_STATUS.DISPUTE]: '争议中'
+  [ORDER_STATUS.REJECTED]: '已拒绝'
 }
 
 export const ORDER_STATUS_COLOR = {
@@ -46,27 +44,26 @@ export const ORDER_STATUS_COLOR = {
   [ORDER_STATUS.WAIT_RETURN_CONFIRM]: 'info',
   [ORDER_STATUS.COMPLETED]: 'success',
   [ORDER_STATUS.CANCELLED]: 'info',
-  [ORDER_STATUS.REJECTED]: 'danger',
-  [ORDER_STATUS.DISPUTE]: 'danger'
+  [ORDER_STATUS.REJECTED]: 'danger'
 }
 
-// 物品状态
+// 物品状态（与后端一致：1-待售, 2-已售出, 3-已下架）
 export const ITEM_STATUS = {
-  AVAILABLE: 1,     // 可借用
-  BORROWED: 2,      // 已借出
-  OFFLINE: 3        // 已下架
+  FOR_SALE: 1,     // 待售
+  SOLD: 2,         // 已售出
+  OFF_SHELF: 3     // 已下架
 } as const
 
 export const ITEM_STATUS_TEXT = {
-  [ITEM_STATUS.AVAILABLE]: '可借用',
-  [ITEM_STATUS.BORROWED]: '已借出',
-  [ITEM_STATUS.OFFLINE]: '已下架'
+  [ITEM_STATUS.FOR_SALE]: '待售',
+  [ITEM_STATUS.SOLD]: '已售出',
+  [ITEM_STATUS.OFF_SHELF]: '已下架'
 }
 
 export const ITEM_STATUS_COLOR = {
-  [ITEM_STATUS.AVAILABLE]: 'success',
-  [ITEM_STATUS.BORROWED]: 'warning',
-  [ITEM_STATUS.OFFLINE]: 'info'
+  [ITEM_STATUS.FOR_SALE]: 'success',
+  [ITEM_STATUS.SOLD]: 'warning',
+  [ITEM_STATUS.OFF_SHELF]: 'info'
 }
 
 // 用户状态

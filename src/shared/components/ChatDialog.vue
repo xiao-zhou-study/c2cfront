@@ -1,59 +1,109 @@
 <template>
   <el-dialog
     v-model="visible"
-    :title="title"
-    width="480px"
-    class="chat-dialog"
+    width="520px"
+    class="chat-detail-dialog"
     destroy-on-close
+    :show-close="false"
     @open="onOpen"
     @close="onClose"
   >
-    <div class="chat-container">
-      <div class="chat-status" :class="{ 'chat-connected': chatStore.connected }">
-        {{ chatStore.connected ? '已连接' : '连接中…' }}
-      </div>
-      <div ref="messagesRef" class="chat-messages">
-        <div
-          v-for="(msg, i) in chatStore.currentMessages"
-          :key="i"
-          class="chat-msg"
-          :class="{ 'chat-msg-self': String(msg.from) === String(userId) }"
-        >
-          <div class="chat-msg-avatar">
-            <el-avatar :size="32" :src="getAvatar(msg.from)">
-              {{ getInitial(msg.from) }}
-            </el-avatar>
-          </div>
-          <div class="chat-msg-bubble">
-            <div class="chat-msg-content">{{ msg.content }}</div>
-            <div class="chat-msg-time">{{ formatTime(msg.timestamp) }}</div>
+    <!-- 自定义头部 -->
+    <template #header="{ close }">
+      <div class="chat-header">
+        <div class="chat-header-left">
+          <el-avatar
+            :size="36"
+            :src="peerAvatar"
+          >
+            {{ peerInitial }}
+          </el-avatar>
+          <div class="chat-header-info">
+            <span class="chat-header-name">{{ peerName || '用户' }}</span>
+            <span
+              class="chat-header-status"
+              :class="{ 'online': isOnline }"
+            >
+              {{ isOnline ? '在线' : '离线' }}
+            </span>
           </div>
         </div>
-        <div v-if="chatStore.currentMessages.length === 0" class="chat-empty">
-          暂无聊天记录
+        <div class="chat-header-right">
+          <el-button
+            type="text"
+            circle
+            @click="close"
+          >
+            <el-icon :size="18"><Close /></el-icon>
+          </el-button>
         </div>
       </div>
-      <div class="chat-input-bar">
-        <el-input
-          v-model="inputText"
-          placeholder="输入消息…"
-          clearable
-          @keydown.enter="sendMessage"
-        />
-        <el-button
-          type="primary"
-          :disabled="!inputText.trim() || !chatStore.connected"
-          @click="sendMessage"
-        >
-          发送
-        </el-button>
+    </template>
+
+    <!-- 消息列表 -->
+    <div
+      ref="messagesRef"
+      class="chat-messages-list"
+    >
+      <div
+        v-for="(msg, i) in chatStore.currentMessages"
+        :key="i"
+        class="chat-message-item"
+        :class="{ 'message-self': String(msg.from) === String(userId) }"
+      >
+        <!-- 消息气泡 -->
+        <div class="message-bubble-wrapper">
+          <div class="message-bubble">
+            <div class="message-content">{{ msg.content }}</div>
+            <div class="message-time">{{ formatTime(msg.timestamp) }}</div>
+          </div>
+        </div>
       </div>
+
+      <!-- 空状态 -->
+      <div
+        v-if="chatStore.currentMessages.length === 0"
+        class="chat-messages-empty"
+      >
+        <el-icon
+          :size="40"
+          color="var(--text-placeholder)"
+        >
+          <ChatDotRound />
+        </el-icon>
+        <p>暂无聊天记录</p>
+        <span>发送消息开始聊天</span>
+      </div>
+    </div>
+
+    <!-- 输入区域 -->
+    <div class="chat-input-area">
+      <el-input
+        v-model="inputText"
+        placeholder="输入消息..."
+        clearable
+        class="chat-input"
+        @keydown.enter="sendMessage"
+      >
+        <template #suffix>
+          <el-button
+            type="primary"
+            circle
+            size="small"
+            :disabled="!inputText.trim() || !chatStore.connected"
+            @click="sendMessage"
+          >
+            <el-icon><Promotion /></el-icon>
+          </el-button>
+        </template>
+      </el-input>
     </div>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
+import { Close, ChatDotRound, Promotion } from '@element-plus/icons-vue'
 import { useUserStore } from '@/shared/stores/user'
 import { useChatStore } from '@/shared/stores/chat'
 import { getUserInfo } from '@/shared/api/modules/user'
@@ -77,58 +127,31 @@ const visible = computed({
   set: (v) => emit('update:modelValue', v)
 })
 
-const title = computed(() => `与 ${props.peerName || '用户' + props.peerId} 聊天`)
-
 const inputText = ref('')
 const messagesRef = ref<HTMLElement | null>(null)
+const peerAvatar = ref('')
+const peerInitial = ref('U')
+const isOnline = ref(false)
 
-// 用户头像缓存（key: string userId）
-const userAvatars = ref<Record<string, string>>({})
-const userNames = ref<Record<string, string>>({})
-
-// 初始化：加载自己的头像和对方头像
-async function loadUserAvatars() {
-  // 自己的头像
-  const myId = String(userId.value)
-  if (!userAvatars.value[myId]) {
-    userAvatars.value[myId] = userStore.userAvatar || ''
-    userNames.value[myId] = userStore.userName || ''
-  }
-
-  // 对方的头像
+// 加载对方用户信息
+async function loadPeerInfo() {
   const peerIdStr = String(props.peerId)
-  if (!userAvatars.value[peerIdStr]) {
-    try {
-      const user = await getUserInfo(peerIdStr)
-      userAvatars.value[peerIdStr] = user?.avatarUrl || ''
-      userNames.value[peerIdStr] = user?.username || props.peerName || ''
-    } catch {
-      userAvatars.value[peerIdStr] = ''
-      userNames.value[peerIdStr] = props.peerName || ''
-    }
+  try {
+    const user = await getUserInfo(peerIdStr)
+    peerAvatar.value = user?.avatarUrl || ''
+    peerInitial.value = user?.username?.charAt(0) || 'U'
+  } catch {
+    peerAvatar.value = ''
+    peerInitial.value = props.peerName?.charAt(0) || 'U'
   }
-}
-
-function getAvatar(fromId: string | number): string {
-  const id = String(fromId)
-  return userAvatars.value[id] || ''
-}
-
-function getInitial(fromId: string | number): string {
-  const id = String(fromId)
-  const name = userNames.value[id]
-  if (name) return name.charAt(0)
-  return id === String(userId.value) ? '我' : 'U'
+  // 检查在线状态
+  isOnline.value = await chatStore.checkOnline(peerIdStr)
 }
 
 function onOpen() {
-  // 先清空缓存
-  userAvatars.value = {}
-  userNames.value = {}
-
   chatStore.connect()
   chatStore.openConversation(props.peerId).then(async () => {
-    await loadUserAvatars()
+    await loadPeerInfo()
     scrollToBottom()
   })
 }
@@ -159,11 +182,10 @@ function scrollToBottom() {
 function formatTime(timestamp: number | string): string {
   if (!timestamp) return ''
   const ts = typeof timestamp === 'string' ? parseInt(timestamp) : timestamp
-  const d = new Date(ts * 1000)
+  const d = new Date(ts)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-// 监听消息变化，自动滚动
 watch(
   () => chatStore.currentMessages.length,
   () => scrollToBottom()
@@ -171,108 +193,154 @@ watch(
 </script>
 
 <style scoped>
-.chat-container {
+.chat-detail-dialog :deep(.el-dialog__header) {
+  padding: 0;
+  margin: 0;
+}
+
+.chat-detail-dialog :deep(.el-dialog__body) {
+  padding: 0;
+}
+
+/* 头部 */
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: transparent;
+}
+
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat-header-left .el-avatar {
+  background: var(--brand-primary-light);
+  color: var(--brand-primary);
+}
+
+.chat-header-info {
   display: flex;
   flex-direction: column;
-  height: 480px;
+  gap: 2px;
 }
 
-.chat-status {
-  padding: 6px 12px;
+.chat-header-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.chat-header-status {
   font-size: 12px;
-  color: #909399;
-  text-align: center;
-  border-bottom: 1px solid #ebeef5;
-  background: #f5f7fa;
+  color: var(--text-secondary);
 }
 
-.chat-status.chat-connected {
+.chat-header-status.online {
   color: #67c23a;
 }
 
-.chat-messages {
-  flex: 1;
+.chat-header-right .el-button {
+  color: var(--text-secondary);
+}
+
+/* 消息列表 */
+.chat-messages-list {
+  height: 420px;
   overflow-y: auto;
   padding: 16px;
+  background: var(--bg-base);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: #fafafa;
-}
-
-.chat-empty {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #909399;
-  font-size: 14px;
-}
-
-.chat-msg {
-  display: flex;
-  align-items: flex-end;
   gap: 8px;
 }
 
-.chat-msg.chat-msg-self {
+.chat-messages-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.chat-messages-empty p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.chat-messages-empty span {
+  font-size: 12px;
+  color: var(--text-placeholder);
+}
+
+/* 消息项 */
+.chat-message-item {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-message-item.message-self {
   flex-direction: row-reverse;
 }
 
-.chat-msg-avatar {
-  flex-shrink: 0;
-}
-
-.chat-msg-avatar .el-avatar {
-  background: #f0f0f0;
-  color: #666;
-  font-size: 12px;
-}
-
-.chat-msg-self .chat-msg-avatar .el-avatar {
-  background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
-  color: white;
-}
-
-.chat-msg-bubble {
+.message-bubble-wrapper {
   max-width: 70%;
+}
+
+.message-bubble {
   padding: 10px 14px;
   border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  background: var(--bg-white);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.chat-msg-self .chat-msg-bubble {
-  background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
-  color: #fff;
+.message-self .message-bubble {
+  background: var(--brand-primary);
 }
 
-.chat-msg-content {
+.message-content {
   font-size: 14px;
   line-height: 1.5;
   word-break: break-word;
+  color: var(--text-primary);
 }
 
-.chat-msg-time {
+.message-self .message-content {
+  color: white;
+}
+
+.message-time {
   font-size: 11px;
-  color: #909399;
+  color: var(--text-placeholder);
   margin-top: 4px;
-  text-align: right;
 }
 
-.chat-msg-self .chat-msg-time {
-  color: rgba(255, 255, 255, 0.7);
+.message-self .message-time {
+  color: rgba(255, 255, 255, 0.6);
 }
 
-.chat-input-bar {
-  display: flex;
-  gap: 8px;
-  padding: 12px;
-  border-top: 1px solid #ebeef5;
-  background: #fff;
+/* 输入区域 */
+.chat-input-area {
+  padding: 12px 16px;
+  background: var(--bg-white);
+  border-top: 1px solid var(--border-light);
 }
 
-.chat-input-bar :deep(.el-input__wrapper) {
-  border-radius: 10px;
+.chat-input :deep(.el-input__wrapper) {
+  border-radius: 20px;
+  padding: 8px 16px;
+}
+
+.chat-input :deep(.el-input__suffix) {
+  margin-left: 8px;
+}
+
+.chat-input :deep(.el-button) {
+  border-radius: 50%;
 }
 </style>

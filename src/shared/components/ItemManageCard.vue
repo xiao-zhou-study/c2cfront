@@ -1,170 +1,173 @@
 <template>
-  <div 
-    class="item-manage-card" 
+  <div
+    class="item-manage-card-wrapper"
     @click="handleClick"
   >
-    <!-- 物品图片 -->
-    <div class="card-image-wrapper">
-      <img
-        v-if="item.images && item.images.length > 0"
-        :src="item.images[0]"
-        :alt="item.title"
-        class="card-image"
-        loading="lazy"
-      >
-      <!-- 占位图 -->
-      <img
-        v-else
-        :src="'https://via.placeholder.com/400x400?text=暂无图片'"
-        :alt="item.title"
-        class="card-image"
-        loading="lazy"
-      >
-      
-      <!-- 状态徽章 -->
+    <el-card
+      class="item-manage-card"
+      shadow="hover"
+    >
+      <!-- 待售状态：卡片右上角三个点操作按钮 -->
       <div
-        class="status-badge"
-        :class="`status-${statusClass}`"
+        v-if="item.status === 1"
+        class="corner-dropdown"
+        @click.stop
+        @mouseenter.stop
+        @mouseover.stop
       >
-        {{ statusText }}
+        <el-dropdown
+          trigger="hover"
+          placement="bottom-end"
+          @command="handleCommand"
+        >
+          <button class="more-btn">
+            <el-icon><MoreFilled /></el-icon>
+          </button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="toggle">
+                <el-icon><Switch /></el-icon>
+                下架
+              </el-dropdown-item>
+              <el-dropdown-item command="edit">
+                <el-icon><Edit /></el-icon>
+                编辑
+              </el-dropdown-item>
+              <el-dropdown-item
+                v-for="action in filteredMoreActions"
+                :key="action.command"
+                :command="action.command"
+                :divided="action.divided"
+              >
+                <el-icon v-if="action.icon">
+                  <component :is="action.icon" />
+                </el-icon>
+                <span :class="{ 'danger-text': action.command === 'delete' }">
+                  {{ action.label }}
+                </span>
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
-    </div>
-    
-    <!-- 物品信息 -->
-    <div class="card-content">
-      <!-- 标题 -->
-      <h3 class="card-title">
-        {{ item.title }}
-      </h3>
-      
-      <!-- 价格行 -->
-      <div class="card-price-row">
-        <div class="price-group">
+
+      <!-- 图片区域 -->
+      <div class="card-image-wrapper">
+        <el-image
+          :src="displayImage"
+          :alt="item.title"
+          fit="cover"
+          class="card-image"
+          lazy
+        >
+          <template #placeholder>
+            <div class="image-placeholder">
+              <el-icon
+                :size="32"
+                color="var(--text-placeholder)"
+              >
+                <Picture />
+              </el-icon>
+            </div>
+          </template>
+          <template #error>
+            <div class="image-placeholder">
+              <el-icon
+                :size="32"
+                color="var(--text-placeholder)"
+              >
+                <Picture />
+              </el-icon>
+            </div>
+          </template>
+        </el-image>
+
+        <!-- 已售出/已下架状态：右上角显示状态徽章 -->
+        <el-tag
+          v-if="item.status !== 1"
+          :type="statusTagType"
+          size="small"
+          effect="dark"
+          class="status-tag"
+        >
+          {{ statusText }}
+        </el-tag>
+
+        <!-- 已下架状态：左上角显示上架按钮 -->
+        <button
+          v-if="item.status === 3"
+          class="上架-btn"
+          @click.stop="handle上架"
+        >
+          <el-icon><SwitchButton /></el-icon>
+          上架
+        </button>
+      </div>
+
+      <!-- 内容区域 -->
+      <div class="card-content">
+        <!-- 标题 -->
+        <div class="card-title">
+          {{ item.title }}
+        </div>
+
+        <!-- 价格 -->
+        <div class="card-price">
           <span class="price-symbol">¥</span>
-          <span class="price-value">{{ item.price }}</span>
+          <span class="price-value">{{ formatPrice }}</span>
           <span class="price-unit">/{{ billingTypeText }}</span>
         </div>
       </div>
-      
-      <!-- 统计信息 -->
-      <div class="card-stats">
-        <div class="stat-item">
-          <el-icon><View /></el-icon>
-          <span>{{ item.viewCount || 0 }}</span>
-        </div>
-        <div class="stat-item">
-          <span>⭐</span>
-          <span>{{ item.favoriteCount || 0 }}</span>
-        </div>
-      </div>
-      
-      <!-- 所有者信息 -->
-      <div
-        v-if="ownerName"
-        class="card-owner-info"
-      >
-        <el-avatar
-          :size="24"
-          :src="ownerAvatar"
-        >
-          {{ ownerName?.charAt(0) || 'U' }}
-        </el-avatar>
-        <span class="owner-name">{{ ownerName }}</span>
-      </div>
-      
-      <!-- 操作按钮 -->
-      <div class="card-actions">
-        <!-- 上架/下架按钮 -->
-        <el-button
-          v-if="!hideToggleAction"
-          size="small"
-          :type="item.status === 1 ? 'primary' : 'success'"
-          @click.stop="handleToggle"
-        >
-          <el-icon>
-            <Switch v-if="item.status === 1" />
-            <SwitchButton v-else />
-          </el-icon>
-          {{ item.status === 1 ? '下架' : '上架' }}
-        </el-button>
-
-        <!-- 编辑按钮 -->
-        <el-button
-          v-if="!hideEditAction"
-          size="small"
-          @click.stop="handleEdit"
-        >
-          <el-icon><Edit /></el-icon>
-          编辑
-        </el-button>
-
-        <!-- 更多操作按钮 -->
-        <el-button
-          v-for="action in filteredMoreActions"
-          v-show="!hideMoreAction"
-          :key="action.command"
-          size="small"
-          :type="getActionButtonType(action)"
-          @click.stop="handleMoreAction(action.command)"
-        >
-          <el-icon v-if="action.icon">
-            <component :is="action.icon" />
-          </el-icon>
-          {{ action.label }}
-        </el-button>
-      </div>
-    </div>
+    </el-card>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { View, Edit, MoreFilled, Switch, SwitchButton } from '@element-plus/icons-vue'
+import { Picture, MoreFilled, Edit, Switch, SwitchButton } from '@element-plus/icons-vue'
 import { itemApi } from '../api'
 
-const router = useRouter()
-
-const props = defineProps({
-  /**
-   * 物品数据
-   */
-  item: {
-    type: Object,
-    required: true
-  },
-  /**
-   * 更多操作列表
-   */
-  moreActions: {
-    type: Array,
-    default: () => []
-  },
-  /**
-   * 是否隐藏上/下架按钮
-   */
-  hideToggleAction: {
-    type: Boolean,
-    default: false
-  },
-  /**
-   * 是否隐藏编辑按钮
-   */
-  hideEditAction: {
-    type: Boolean,
-    default: false
-  },
-  /**
-   * 是否隐藏更多操作
-   */
-  hideMoreAction: {
-    type: Boolean,
-    default: false
+interface ItemData {
+  id: string | number
+  title: string
+  images?: string[] | { url: string }[]
+  price: number
+  billingType?: 'per_day' | 'per_week' | 'per_month'
+  status?: 1 | 2 | 3
+  viewCount?: number
+  favoriteCount?: number
+  owner?: {
+    username?: string
+    avatarUrl?: string
   }
+  username?: string
+  avatar?: string
+}
+
+interface ActionItem {
+  command: string
+  label: string
+  icon?: any
+  divided?: boolean
+}
+
+const props = withDefaults(defineProps<{
+  item: ItemData
+  moreActions?: ActionItem[]
+}>(), {
+  moreActions: () => []
 })
 
-const emit = defineEmits(['click', 'toggle', 'edit', 'more-action'])
+const emit = defineEmits<{
+  click: [item: ItemData]
+  toggle: [item: ItemData]
+  edit: [item: ItemData]
+  'more-action': [{ command: string, item: ItemData }]
+}>()
+
+const router = useRouter()
 
 // 过滤掉复制按钮
 const filteredMoreActions = computed(() => {
@@ -173,50 +176,45 @@ const filteredMoreActions = computed(() => {
   )
 })
 
-// 获取按钮类型
-const getActionButtonType = (action) => {
-  if (action.command === 'delete' || action.label?.includes('删除')) {
-    return 'danger'
-  }
-  return action.type || 'default'
-}
+// 显示图片
+const displayImage = computed(() => {
+  const images = props.item.images
+  if (!images || images.length === 0) return ''
+  const firstImage = images[0]
+  return typeof firstImage === 'string' ? firstImage : firstImage.url
+})
 
-// 状态文本和样式
-const statusClass = computed(() => {
-  const statusMap = {
-    1: 'for-sale',
-    2: 'sold',
-    3: 'offline'
+// 状态样式
+const statusTagType = computed(() => {
+  const typeMap: Record<number, 'warning' | 'info'> = {
+    2: 'warning',
+    3: 'info'
   }
-  return statusMap[props.item.status] || 'for-sale'
+  return typeMap[props.item.status || 2] || 'warning'
 })
 
 const statusText = computed(() => {
-  const textMap = {
-    1: '待售',
+  const textMap: Record<number, string> = {
     2: '已售出',
     3: '已下架'
   }
-  return textMap[props.item.status] || '待售'
+  return textMap[props.item.status || 2] || '已售出'
 })
 
-// 计费方式文本
+// 计费方式
 const billingTypeText = computed(() => {
-  const typeMap = {
+  const typeMap: Record<string, string> = {
     'per_day': '天',
     'per_week': '周',
     'per_month': '月'
   }
-  return typeMap[props.item.billingType] || '天'
+  return typeMap[props.item.billingType || 'per_day'] || '天'
 })
 
-// 兼容两种数据结构：item.owner 或顶层 username/avatar
-const ownerName = computed(() => {
-  return props.item.owner?.username || props.item.username
-})
-
-const ownerAvatar = computed(() => {
-  return props.item.owner?.avatarUrl || props.item.avatar
+// 格式化价格
+const formatPrice = computed(() => {
+  const price = props.item.price
+  return Number(price).toFixed(price % 1 === 0 ? 0 : 2)
 })
 
 // 点击卡片
@@ -224,224 +222,216 @@ const handleClick = () => {
   emit('click', props.item)
 }
 
-// 上架/下架
-const handleToggle = () => {
+// 上架操作
+const handle上架 = () => {
   emit('toggle', props.item)
 }
 
-// 编辑
-const handleEdit = async () => {
-  try {
-    // 调用后端API获取完整的物品详情
-    // 注意：响应拦截器已经解包了res.data，所以itemDetail就是物品数据对象
-    const itemDetail = await itemApi.getItemDetail(props.item.id)
-    
-    console.log('获取到的物品详情数据:', itemDetail)
-
-    // 跳转到发布页面，传递编辑模式和完整的物品数据
-    router.push({
-      path: '/publish',
-      query: {
-        edit: props.item.id
-      },
-      state: {
-        item: itemDetail  // 直接使用itemDetail，因为响应拦截器已经解包
+// 处理下拉菜单命令
+const handleCommand = async (command: string) => {
+  switch (command) {
+    case 'toggle':
+      emit('toggle', props.item)
+      break
+    case 'edit':
+      try {
+        const itemDetail = await itemApi.getItemDetail(String(props.item.id))
+        router.push({
+          path: '/publish',
+          query: { edit: String(props.item.id) },
+          state: { item: itemDetail as any }
+        })
+        ElMessage.success('正在加载编辑页面...')
+      } catch (error) {
+        console.error('获取物品详情失败:', error)
+        ElMessage.error('加载编辑数据失败')
       }
-    })
-
-    ElMessage.success('正在加载编辑页面...')
-  } catch (error) {
-    console.error('获取物品详情失败:', error)
-    ElMessage.error('加载编辑数据失败，请稍后重试')
+      break
+    default:
+      emit('more-action', { command, item: props.item })
   }
-}
-
-// 更多操作
-const handleMoreAction = (command) => {
-  emit('more-action', { command, item: props.item })
 }
 </script>
 
 <style scoped>
-.item-manage-card {
+.item-manage-card-wrapper {
   position: relative;
-  background: var(--bg-white);
-  border-radius: var(--radius-md);
-  overflow: hidden;
   cursor: pointer;
-  transition: all var(--transition-base);
-  box-shadow: var(--shadow-base);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 
-.item-manage-card:hover {
+.item-manage-card {
+  border-radius: 12px;
+  border: none;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.item-manage-card-wrapper:hover .item-manage-card {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-hover);
+}
+
+.item-manage-card :deep(.el-card__body) {
+  padding: 0;
+}
+
+/* 卡片右上角下拉菜单 */
+.corner-dropdown {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 10;
+}
+
+.more-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.more-btn:hover {
+  background: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.more-btn .el-icon {
+  font-size: 12px;
+  color: var(--text-regular);
 }
 
 /* 图片区域 */
 .card-image-wrapper {
   position: relative;
   width: 100%;
-  padding-top: 100%; /* 1:1 比例 */
+  aspect-ratio: 1;
   overflow: hidden;
-  background: var(--bg-base);
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e7ed 100%);
 }
 
 .card-image {
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  transition: transform var(--transition-base);
 }
 
-.item-manage-card:hover .card-image {
-  transform: scale(1.05);
+.image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 状态徽章 */
-.status-badge {
+.status-tag {
   position: absolute;
-  top: var(--spacing-sm);
-  right: var(--spacing-sm);
-  padding: 4px 12px;
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-extra-small);
-  font-weight: var(--font-weight-medium);
+  top: 8px;
+  right: 8px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+/* 上架按钮（左上角） */
+.上架-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-hover) 100%);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
   color: white;
-  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
 }
 
-.status-for-sale {
-  background: rgba(103, 194, 58, 0.9);
+.上架-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(64, 158, 255, 0.3);
 }
 
-.status-sold {
-  background: rgba(230, 162, 60, 0.9);
-}
-
-.status-offline {
-  background: rgba(144, 147, 153, 0.9);
+.上架-btn .el-icon {
+  font-size: 12px;
 }
 
 /* 内容区域 */
 .card-content {
-  padding: var(--spacing-md);
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
-  flex: 1;
+  gap: 8px;
 }
 
 .card-title {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-medium);
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-primary);
-  margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: var(--line-height-base);
 }
 
-/* 价格行 */
-.card-price-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-sm);
-}
-
-.price-group {
+.card-price {
   display: flex;
   align-items: baseline;
-  gap: 2px;
+  gap: 1px;
 }
 
 .price-symbol {
-  font-size: var(--font-size-small);
+  font-size: 12px;
   color: var(--brand-primary);
-  font-weight: var(--font-weight-bold);
+  font-weight: 500;
 }
 
 .price-value {
-  font-size: 20px;
+  font-size: 18px;
   color: var(--brand-primary);
-  font-weight: var(--font-weight-bold);
+  font-weight: 600;
   font-family: var(--font-family-number);
 }
 
 .price-unit {
-  font-size: var(--font-size-extra-small);
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
-/* 统计信息 */
-.card-stats {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  padding-top: var(--spacing-xs);
-  border-top: 1px solid var(--border-extra-light);
-  margin-top: auto;
+/* 删除文字红色 */
+.danger-text {
+  color: var(--color-danger);
 }
 
-.stat-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--font-size-extra-small);
-  color: var(--text-secondary);
-}
-
-.stat-item .el-icon {
-  font-size: 14px;
-}
-
-/* 所有者信息 */
-.card-owner-info {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding-top: var(--spacing-sm);
-  border-top: 1px solid var(--border-extra-light);
-}
-
-.owner-name {
-  font-size: var(--font-size-extra-small);
-  color: var(--text-regular);
-  flex: 1;
-}
-
-/* 操作按钮区域 */
-.card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-sm);
-  padding-top: var(--spacing-sm);
-  border-top: 1px solid var(--border-extra-light);
-}
-
-.card-actions :deep(.el-button) {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--font-size-extra-small);
-}
-
-/* 当按钮太多时，让它们能够换行 */
+/* 响应式 */
 @media (max-width: 480px) {
-  .card-actions {
-    gap: var(--spacing-xs);
+  .card-content {
+    padding: 8px;
+    gap: 6px;
   }
 
-  .card-actions :deep(.el-button) {
-    min-width: 80px;
-    flex: none;
+  .card-title {
+    font-size: 13px;
+  }
+
+  .price-value {
+    font-size: 16px;
+  }
+
+  .more-btn {
+    width: 18px;
+    height: 18px;
+  }
+
+  .more-btn .el-icon {
+    font-size: 10px;
   }
 }
 </style>

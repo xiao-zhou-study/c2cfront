@@ -1,10 +1,10 @@
 <template>
   <div class="item-actions">
     <div class="action-buttons">
-      <el-button 
-        type="primary" 
-        size="large" 
-        :disabled="!(item.status === 1 || item.status === 'available')"
+      <el-button
+        type="primary"
+        size="large"
+        :disabled="!(item.status === 1 || item.status === 'for_sale')"
         class="borrow-btn"
         @click="handleBorrow"
       >
@@ -42,12 +42,12 @@
     </div>
     
     <div
-      v-if="!(item.status === 1 || item.status === 'available')"
+      v-if="!(item.status === 1 || item.status === 'for_sale')"
       class="action-tips"
     >
-      <el-alert 
-        title="该物品当前不可借用" 
-        type="warning" 
+      <el-alert
+        title="该物品当前不可交易"
+        type="warning"
         :closable="false"
         show-icon
       />
@@ -77,8 +77,8 @@ const emit = defineEmits(['borrow', 'favorite', 'share', 'report'])
 const isFavorited = ref(false)
 
 const handleBorrow = () => {
-  if (!(props.item.status === 1 || props.item.status === 'available')) {
-    ElMessage.warning('该物品当前不可借用')
+  if (!(props.item.status === 1 || props.item.status === 'for_sale')) {
+    ElMessage.warning('该物品当前不可交易')
     return
   }
   

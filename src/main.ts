@@ -38,6 +38,19 @@ app.mount('#app')
 // 添加全局错误处理
 app.config.errorHandler = (err, _instance, info) => {
   console.error('Vue 错误:', err, info)
+  // 对于 WebSocket/聊天相关的错误，静默处理，不显示全局提示
+  const errStr = String(err)
+  if (
+    errStr.includes('WebSocket') ||
+    errStr.includes('chat') ||
+    errStr.includes('聊天') ||
+    info?.includes('chat') ||
+    info?.includes('ChatStore')
+  ) {
+    console.log('聊天相关错误，静默处理')
+    return
+  }
+  // 其他关键错误才显示提示
   ElMessage.error('应用发生错误，请刷新页面重试')
 }
 

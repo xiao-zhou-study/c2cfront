@@ -33,7 +33,7 @@
             :value="1"
           />
           <el-option
-            label="已借出"
+            label="已售出"
             :value="2"
           />
           <el-option

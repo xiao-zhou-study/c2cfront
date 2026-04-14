@@ -29,8 +29,20 @@ export interface ChatSession {
 const HEARTBEAT_INTERVAL = 30000
 const RECONNECT_DELAY = 3000
 
-function buildWsUrl(userId: string, token: string): string {
-  return `ws://localhost:3000/api/ns/ws/chat?userId=${userId}&token=${token}`
+function buildWsUrl(userId: string): string {
+  // 根据环境动态构建 WebSocket URL
+  const isDev = import.meta.env.MODE === 'development'
+
+  if (isDev) {
+    // 开发环境：使用本地代理
+    return `ws://localhost:3000/api/ns/ws/chat?userId=${userId}`
+  } else {
+    // 生产环境：使用实际的 API 地址
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://api.xzxfle.top'
+    // 将 http(s) 转换为 ws(s)
+    const wsBaseUrl = apiBaseUrl.replace(/^http/, 'ws')
+    return `${wsBaseUrl}/ns/ws/chat?userId=${userId}`
+  }
 }
 
 export const useChatStore = defineStore('chat', () => {
@@ -56,11 +68,10 @@ export const useChatStore = defineStore('chat', () => {
   // 建立连接
   function connect() {
     const userId = String(userStore.userId)
-    const token = localStorage.getItem('xy_token') || ''
-    console.log('chatStore.connect() called', { userId, hasToken: !!token })
+    console.log('chatStore.connect() called', { userId })
 
-    if (!userId || !token) {
-      console.warn('chatStore.connect(): userId 或 token 为空，跳过连接')
+    if (!userId) {
+      console.warn('chatStore.connect(): userId 为空，跳过连接')
       return
     }
 
@@ -70,7 +81,7 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
-    const url = buildWsUrl(userId, token)
+    const url = buildWsUrl(userId)
     console.log('chatStore.connect(): 正在连接 WebSocket', url)
     ws = new WebSocket(url)
 
@@ -113,8 +124,10 @@ export const useChatStore = defineStore('chat', () => {
       scheduleReconnect()
     }
 
-    ws.onerror = () => {
-      console.error('WebSocket 错误')
+    ws.onerror = (err) => {
+      console.error('WebSocket 连接错误:', err)
+      // 不抛出错误，静默处理
+      connected.value = false
     }
   }
 
@@ -143,7 +156,7 @@ export const useChatStore = defineStore('chat', () => {
       type: 'chat',
       to: toUserId,
       content,
-      timestamp: Math.floor(Date.now() / 1000)
+      timestamp: Date.now()
     }
     ws.send(JSON.stringify(payload))
 
@@ -173,6 +186,18 @@ export const useChatStore = defineStore('chat', () => {
       console.error('加载会话列表失败:', e)
     } finally {
       loadingSessions.value = false
+    }
+  }
+
+  // 批量检查会话用户的在线状态
+  async function checkAllSessionsOnline() {
+    for (const session of sessions.value) {
+      try {
+        const isOnline = await chatApi.checkOnline(String(session.userId))
+        session.online = isOnline
+      } catch {
+        session.online = false
+      }
     }
   }
 
@@ -250,13 +275,18 @@ export const useChatStore = defineStore('chat', () => {
     }, RECONNECT_DELAY)
   }
 
-  // 检查用户是否在线
+  // 检查单个用户是否在线
   async function checkOnline(userId: string) {
     try {
       return await chatApi.checkOnline(userId)
     } catch {
       return false
     }
+  }
+
+  // 刷新在线状态（可手动调用）
+  async function refreshOnlineStatus() {
+    await checkAllSessionsOnline()
   }
 
   return {
@@ -273,6 +303,7 @@ export const useChatStore = defineStore('chat', () => {
     loadHistory,
     openConversation,
     closeConversation,
-    checkOnline
+    checkOnline,
+    refreshOnlineStatus
   }
 })

@@ -122,10 +122,7 @@
         <el-menu-item index="/profile">
           <span>个人中心</span>
         </el-menu-item>
-        <el-menu-item index="/about">
-          <span>关于我们</span>
-        </el-menu-item>
-      </el-menu>
+        </el-menu>
       
       <!-- 移动端分类菜单 -->
       <div class="category-section">
@@ -216,13 +213,86 @@
           </el-menu>
         </div>
         <div class="header-user">
-          <!-- 聊天入口 -->
-          <el-tooltip content="消息" placement="bottom">
-            <div class="chat-trigger" @click="openChatPanel">
+          <!-- 聊天入口 - 即时通讯风格 -->
+          <el-dropdown
+            trigger="click"
+            placement="bottom-end"
+            class="chat-dropdown"
+            @visible-change="onChatDropdownChange"
+          >
+            <div class="chat-trigger">
               <el-icon :size="20"><ChatDotRound /></el-icon>
-              <span v-if="chatStore.totalUnreadCount > 0" class="chat-badge">{{ chatStore.totalUnreadCount > 99 ? '99+' : chatStore.totalUnreadCount }}</span>
+              <span
+                v-if="chatStore.totalUnreadCount > 0"
+                class="chat-badge"
+              >{{ chatStore.totalUnreadCount > 99 ? '99+' : chatStore.totalUnreadCount }}</span>
             </div>
-          </el-tooltip>
+            <template #dropdown>
+              <div class="chat-panel-dropdown">
+                <!-- 头部 -->
+                <div class="chat-panel-header">
+                  <span class="chat-panel-title">消息</span>
+                  <span
+                    v-if="chatStore.totalUnreadCount > 0"
+                    class="chat-panel-badge"
+                  >{{ chatStore.totalUnreadCount }}条未读</span>
+                </div>
+
+                <!-- 会话列表 -->
+                <div
+                  v-loading="chatStore.loadingSessions"
+                  class="chat-session-list"
+                >
+                  <!-- 空状态 -->
+                  <div
+                    v-if="chatStore.sessions.length === 0 && !chatStore.loadingSessions"
+                    class="chat-empty-state"
+                  >
+                    <el-icon
+                      :size="40"
+                      color="var(--text-placeholder)"
+                    >
+                      <ChatDotRound />
+                    </el-icon>
+                    <p class="empty-text">暂无会话</p>
+                    <p class="empty-tip">在物品详情页点击"联系卖家"开始聊天</p>
+                  </div>
+
+                  <!-- 会话项 -->
+                  <div
+                    v-for="session in chatStore.sessions"
+                    :key="session.userId"
+                    class="chat-session-item"
+                    @click="openChatDetail(session)"
+                  >
+                    <el-avatar
+                      :size="40"
+                      :src="session.userAvatar"
+                      class="session-avatar"
+                    >
+                      {{ session.userName?.charAt(0) || 'U' }}
+                    </el-avatar>
+                    <div class="session-content">
+                      <div class="session-top">
+                        <span class="session-name">{{ session.userName || `用户${session.userId}` }}</span>
+                        <span
+                          v-if="session.online"
+                          class="session-online-dot"
+                        />
+                      </div>
+                      <p class="session-msg">{{ session.lastMessage?.content || '暂无消息' }}</p>
+                    </div>
+                    <div class="session-right">
+                      <span
+                        v-if="session.unreadCount > 0"
+                        class="session-unread-badge"
+                      >{{ session.unreadCount }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </el-dropdown>
 
           <el-dropdown
             class="notification-dropdown"
@@ -330,19 +400,7 @@
                 <el-dropdown-item command="profile">
                   <span>个人资料</span>
                 </el-dropdown-item>
-                <el-dropdown-item command="favorites">
-                  <span>我的收藏</span>
-                </el-dropdown-item>
-                <el-dropdown-item
-                  command="/about"
-                  divided
-                >
-                  <span>关于我们</span>
-                </el-dropdown-item>
-                <el-dropdown-item
-                  command="logout"
-                  divided
-                >
+                <el-dropdown-item command="logout" divided>
                   <span>退出登录</span>
                 </el-dropdown-item>
               </el-dropdown-menu>
@@ -416,45 +474,6 @@
       :class="{ 'show': sideMenuOpen }"
       @click="toggleSideMenu"
     />
-
-    <!-- 聊天面板弹窗 -->
-    <el-dialog
-      v-model="chatPanelVisible"
-      title="消息"
-      width="400px"
-      class="chat-panel-dialog"
-      destroy-on-close
-      @open="onChatPanelOpen"
-      @close="onChatPanelClose"
-    >
-      <div v-loading="chatStore.loadingSessions" class="chat-sessions">
-        <div v-if="chatStore.sessions.length === 0 && !chatStore.loadingSessions" class="chat-empty">
-          <el-icon :size="48"><ChatDotRound /></el-icon>
-          <p>暂无会话</p>
-          <span>在物品详情页点击"联系卖家"开始聊天</span>
-        </div>
-        <div
-          v-for="session in chatStore.sessions"
-          :key="session.userId"
-          class="chat-session-item"
-          @click="openChatDetail(session)"
-        >
-          <el-avatar :size="44" :src="session.userAvatar" class="session-avatar">
-            {{ session.userName?.charAt(0) || String(session.userId).slice(-2) }}
-          </el-avatar>
-          <div class="session-info">
-            <div class="session-header">
-              <span class="session-name">{{ session.userName || `用户${session.userId}` }}</span>
-              <span v-if="session.online" class="session-online">在线</span>
-            </div>
-            <p class="session-last-msg">{{ session.lastMessage?.content || '暂无消息' }}</p>
-          </div>
-          <div class="session-meta">
-            <span v-if="session.unreadCount > 0" class="session-unread">{{ session.unreadCount }}</span>
-          </div>
-        </div>
-      </div>
-    </el-dialog>
 
     <!-- 聊天详情弹窗 -->
     <ChatDialog
@@ -556,8 +575,7 @@ const isMenuExpanded = computed(() => {
 const footerItems = [
   { path: '/dashboard', label: '首页' },
   { path: '/items', label: '商品' },
-  { path: '/profile', label: '我的' },
-  { path: '/about', label: '关于' }
+  { path: '/profile', label: '我的' }
 ]
 
 // 分类数据
@@ -849,30 +867,21 @@ const getTypeIcon = (type) => {
 }
 
 // ========== 聊天相关 ==========
-const chatPanelVisible = ref(false)
 const chatDetailVisible = ref(false)
 const chatTargetId = ref('')
 const chatTargetDisplayName = ref('')
 
-const openChatPanel = async () => {
-  chatPanelVisible.value = true
-  // 确保 WebSocket 已连接
-  chatStore.connect()
-  await chatStore.loadSessions()
-}
-
-const onChatPanelOpen = async () => {
-  // 已在 openChatPanel 中处理
-}
-
-const onChatPanelClose = () => {
-  // 会话列表保持在 store 中
+// 聊天下拉框展开时加载会话
+const onChatDropdownChange = async (visible) => {
+  if (visible) {
+    chatStore.connect()
+    await chatStore.loadSessions()
+  }
 }
 
 const openChatDetail = async (session) => {
   chatTargetId.value = String(session.userId)
   chatTargetDisplayName.value = session.userName || `用户${session.userId}`
-  chatPanelVisible.value = false
   chatDetailVisible.value = true
 }
 
@@ -941,14 +950,35 @@ const handleKeydown = (event) => {
   }
 }
 
-// 监听用户登录状态，登录后自动获取通知
+// 初始化聊天：连接WebSocket并加载会话列表
+// 注意：此函数必须定义在 watch 之前，因为 watch 的 immediate: true 会立即调用它
+// userId 是 64 位整数，需要转为字符串处理
+const initChat = async () => {
+  try {
+    // 确保 userId 存在才连接
+    if (!userStore.userId) {
+      console.log('initChat: userId 不存在，跳过初始化')
+      return
+    }
+    chatStore.connect()
+    await chatStore.loadSessions()
+  } catch (error) {
+    console.error('初始化聊天失败:', error)
+    // 不抛出错误，静默处理，避免影响页面
+  }
+}
+
+// 监听用户登录状态，登录后自动获取通知和初始化聊天
+// 注意：immediate: true 会在组件挂载前触发，需要确保 userId 存在
 watch(() => userStore.token, (newToken) => {
-  if (newToken) {
-    // 用户登录后获取通知
+  if (newToken && userStore.userId) {
+    // 用户登录后获取通知和初始化聊天（确保 userId 存在）
     fetchNotifications()
-  } else {
-    // 用户退出后清空通知
+    initChat()
+  } else if (!newToken) {
+    // 用户退出后清空通知和断开聊天连接
     notifications.value = []
+    chatStore.disconnect()
   }
 }, { immediate: true })
 
@@ -957,29 +987,25 @@ onMounted(() => {
   // 初始化响应式检测
   handleResize()
   window.addEventListener('resize', debounceResize)
-  
+
   // 添加键盘快捷键监听
   document.addEventListener('keydown', handleKeydown)
-  
+
   // 添加页面可见性变化监听
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && sideMenuOpen.value) {
       // 页面隐藏时关闭移动端菜单
       sideMenuOpen.value = false
       document.body.style.overflow = 'auto'
-    } else if (!document.hidden && userStore.token) {
-      // 页面重新可见时刷新通知
+    } else if (!document.hidden && userStore.token && userStore.userId) {
+      // 页面重新可见时刷新通知和会话列表（确保 userId 存在）
       fetchNotifications()
+      initChat()
     }
   })
-  
+
   // 预加载关键路由
   preloadRoutes()
-  
-  // 如果用户已登录，获取通知列表
-  if (userStore.token) {
-    fetchNotifications()
-  }
 })
 
 onUnmounted(() => {
@@ -2253,57 +2279,88 @@ const preloadRoutes = async () => {
   }
 }
 
-/* 聊天面板弹窗 */
-.chat-panel-dialog .chat-sessions {
-  max-height: 400px;
+/* ==================== 聊天下拉面板 ==================== */
+
+.chat-dropdown {
+  margin-right: 8px;
+}
+
+.chat-panel-dropdown {
+  width: 360px;
+  max-height: 480px;
+  background: var(--bg-white);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.chat-panel-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-panel-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.chat-panel-badge {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--brand-primary-light);
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.chat-session-list {
+  max-height: 420px;
   overflow-y: auto;
 }
 
-.chat-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
-  color: #909399;
+.chat-empty-state {
+  padding: 40px 20px;
+  text-align: center;
 }
 
-.chat-empty p {
-  margin: 16px 0 4px;
-  font-size: 15px;
-  color: #606266;
+.chat-empty-state .empty-text {
+  margin: 12px 0 4px;
+  font-size: 14px;
+  color: var(--text-secondary);
 }
 
-.chat-empty span {
-  font-size: 13px;
+.chat-empty-state .empty-tip {
+  font-size: 12px;
+  color: var(--text-placeholder);
 }
 
 .chat-session-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
-  border-radius: 12px;
+  padding: 12px 16px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s ease;
 }
 
 .chat-session-item:hover {
-  background-color: #f5f7fa;
+  background: var(--bg-base);
 }
 
 .session-avatar {
-  background: linear-gradient(135deg, #03a688 0%, #02c39a 100%);
-  color: white;
   flex-shrink: 0;
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-hover) 100%);
+  color: white;
 }
 
-.session-info {
+.session-content {
   flex: 1;
   min-width: 0;
 }
 
-.session-header {
+.session-top {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2312,37 +2369,56 @@ const preloadRoutes = async () => {
 .session-name {
   font-size: 14px;
   font-weight: 500;
-  color: #303133;
+  color: var(--text-primary);
 }
 
-.session-online {
-  font-size: 11px;
-  color: #67c23a;
-  background: #e8f9f0;
-  padding: 2px 6px;
-  border-radius: 4px;
+.session-online-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #67c23a;
+  box-shadow: 0 0 6px rgba(103, 194, 58, 0.6);
+  animation: online-pulse 2s ease-in-out infinite;
 }
 
-.session-last-msg {
+@keyframes online-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+.session-msg {
   margin: 4px 0 0;
-  font-size: 13px;
-  color: #909399;
+  font-size: 12px;
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.session-meta {
+.session-right {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
-.session-unread {
-  background: #f56c6c;
+.session-unread-badge {
+  background: var(--color-danger);
   color: white;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 聊天详情弹窗 */

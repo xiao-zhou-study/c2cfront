@@ -279,8 +279,7 @@ const statusText = (status: number) => {
     [ORDER_STATUS.WAIT_RETURN_CONFIRM]: '待归还确认',
     [ORDER_STATUS.COMPLETED]: '已完成',
     [ORDER_STATUS.CANCELLED]: '已取消',
-    [ORDER_STATUS.REJECTED]: '已拒绝',
-    [ORDER_STATUS.DISPUTE]: '争议中'
+    [ORDER_STATUS.REJECTED]: '已拒绝'
   }
   return map[status] ?? '未知'
 }
@@ -293,8 +292,7 @@ const statusTagType = (status: number) => {
     [ORDER_STATUS.WAIT_RETURN_CONFIRM]: 'info',
     [ORDER_STATUS.COMPLETED]: 'success',
     [ORDER_STATUS.CANCELLED]: 'default',
-    [ORDER_STATUS.REJECTED]: 'danger',
-    [ORDER_STATUS.DISPUTE]: 'danger'
+    [ORDER_STATUS.REJECTED]: 'danger'
   }
   return map[status] ?? 'info'
 }
@@ -337,7 +335,7 @@ onMounted(() => {
   fetchDetail()
 })
 
-const setStatus = async (status: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8) => {
+const setStatus = async (status: 1 | 2 | 3 | 4 | 5 | 6 | 7) => {
   const orderId = order.value?.id
   if (!orderId) return
   try {

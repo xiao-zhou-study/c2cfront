@@ -51,7 +51,6 @@
       <el-tab-pane label="已完成" :name="5" />
       <el-tab-pane label="已取消" :name="6" />
       <el-tab-pane label="已拒绝" :name="7" />
-      <el-tab-pane label="争议中" :name="8" />
     </el-tabs>
 
     <div
@@ -298,8 +297,7 @@ function statusText(status: number) {
     4: '待评价',
     5: '已完成',
     6: '已取消',
-    7: '已拒绝',
-    8: '争议中'
+    7: '已拒绝'
   }
   return map[status] ?? '未知'
 }
@@ -312,8 +310,7 @@ function statusTagType(status: number) {
     4: 'info',
     5: 'success',
     6: 'default',
-    7: 'danger',
-    8: 'danger'
+    7: 'danger'
   }
   return map[status] ?? 'info'
 }
@@ -447,16 +444,34 @@ defineExpose({ refresh })
 
 .status-tabs {
   margin-bottom: 16px;
-  background: transparent;
 }
 
 .status-tabs :deep(.el-tabs__header) {
-  margin-bottom: 0;
-  background: transparent;
-  border: none;
+  margin-bottom: 12px;
+}
+
+.status-tabs :deep(.el-tabs__nav-wrap) {
+  padding: 0;
+  overflow: visible;
+}
+
+.status-tabs :deep(.el-tabs__nav-scroll) {
+  padding: 0;
+  overflow: visible;
+}
+
+.status-tabs :deep(.el-tabs__nav) {
+  padding: 0;
+  margin: 0;
+  gap: 8px;
+  width: 100%;
 }
 
 .status-tabs :deep(.el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+.status-tabs :deep(.el-tabs__active-bar) {
   display: none;
 }
 
@@ -465,13 +480,30 @@ defineExpose({ refresh })
   text-align: center;
   padding: 8px 12px;
   font-size: 14px;
-  background: transparent;
   border: none;
+  border-radius: 6px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
+.status-tabs :deep(.el-tabs__item:first-child) {
+  margin-left: 0;
+}
+
+.status-tabs :deep(.el-tabs__item:last-child) {
+  margin-right: 0;
 }
 
 .status-tabs :deep(.el-tabs__item.is-active) {
   color: white;
   background: linear-gradient(135deg, #409EFF 0%, #66B1FF 100%);
+}
+
+.status-tabs :deep(.el-tabs__content) {
+  display: none;
 }
 
 .loading-wrap,

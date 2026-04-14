@@ -11,9 +11,9 @@
       >
       <div
         class="item-tag"
-        :class="{'borrowed': item.status !== 1}"
+        :class="{'sold': item.status !== 1}"
       >
-        {{ item.status === 1 ? '可借用' : '已借出' }}
+        {{ item.status === 1 ? '待售' : '已售出' }}
       </div>
       <div
         class="item-badge"

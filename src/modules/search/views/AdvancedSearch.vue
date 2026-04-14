@@ -75,14 +75,14 @@
           <!-- 物品状态 -->
           <el-form-item label="物品状态">
             <el-checkbox-group v-model="searchForm.statuses">
-              <el-checkbox label="available">
-                可用
+              <el-checkbox label="for_sale">
+                待售
               </el-checkbox>
-              <el-checkbox label="reserved">
-                已预留
+              <el-checkbox label="sold">
+                已售出
               </el-checkbox>
-              <el-checkbox label="borrowed">
-                已借出
+              <el-checkbox label="off_shelf">
+                已下架
               </el-checkbox>
             </el-checkbox-group>
           </el-form-item>

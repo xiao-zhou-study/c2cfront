@@ -97,20 +97,6 @@ const routes: RouteRecordRaw[] = [
     ]
   },
   
-  // 关于我们
-  {
-    path: '/about',
-    name: 'About',
-    component: Layout,
-    meta: { title: '关于我们', requiresAuth: false },
-    children: [
-      {
-        path: '',
-        component: () => import('@/modules/common/views/About.vue')
-      }
-    ]
-  },
-  
   // 意见反馈
   {
     path: '/feedback',
@@ -174,7 +160,7 @@ const router = createRouter({
 })
 
 // 白名单路由（不需要登录即可访问）
-const whiteList = ['/login', '/register', '/terms', '/privacy', '/help', '/about']
+const whiteList = ['/login', '/register', '/terms', '/privacy', '/help']
 
 // 路由守卫
 router.beforeEach(async (to, _from, next) => {

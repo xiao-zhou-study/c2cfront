@@ -145,7 +145,7 @@
                 <el-icon color="var(--success-color)">
                   <CircleCheckFilled />
                 </el-icon>
-                可借用
+                待售
               </el-radio>
               <el-radio
                 :label="2"
@@ -154,7 +154,7 @@
                 <el-icon color="var(--warning-color)">
                   <WarningFilled />
                 </el-icon>
-                已借出
+                已售出
               </el-radio>
               <el-radio
                 :label="3"
@@ -489,8 +489,8 @@ const getCategoryName = (id: string | number | null) => {
 
 const getStatusText = (status: number) => {
   const statusMap: Record<number, string> = {
-    1: '可借用',
-    2: '已借出',
+    1: '待售',
+    2: '已售出',
     3: '已下架'
   }
   return statusMap[status] || '未知状态'

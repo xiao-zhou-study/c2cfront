@@ -6,7 +6,7 @@
         <el-icon><List /></el-icon>
         借用记录
       </h3>
-      <p class="section-desc">您向他人发起的借用申请与记录，状态：待确认、待付款、借用中、待归还确认、已完成、已取消、已拒绝、争议中</p>
+      <p class="section-desc">您向他人发起的借用申请与记录，状态：待确认、待付款、借用中、待归还确认、已完成、已取消、已拒绝</p>
 
       <div class="toolbar">
         <el-select
@@ -24,7 +24,6 @@
           <el-option label="已完成" :value="ORDER_STATUS.COMPLETED" />
           <el-option label="已取消" :value="ORDER_STATUS.CANCELLED" />
           <el-option label="已拒绝" :value="ORDER_STATUS.REJECTED" />
-          <el-option label="争议中" :value="ORDER_STATUS.DISPUTE" />
         </el-select>
         <el-button
           type="primary"
@@ -98,7 +97,7 @@
         <el-icon><Bell /></el-icon>
         借出记录
       </h3>
-      <p class="section-desc">他人向您发起的借用申请与记录，状态：待确认、待付款、借用中、待归还确认、已完成、已取消、已拒绝、争议中。待确认时可允许或拒绝</p>
+      <p class="section-desc">他人向您发起的借用申请与记录，状态：待确认、待付款、借用中、待归还确认、已完成、已取消、已拒绝。待确认时可允许或拒绝</p>
 
       <div class="toolbar">
         <el-select
@@ -116,7 +115,6 @@
           <el-option label="已完成" :value="ORDER_STATUS.COMPLETED" />
           <el-option label="已取消" :value="ORDER_STATUS.CANCELLED" />
           <el-option label="已拒绝" :value="ORDER_STATUS.REJECTED" />
-          <el-option label="争议中" :value="ORDER_STATUS.DISPUTE" />
         </el-select>
         <el-button
           type="primary"
@@ -306,8 +304,7 @@ function statusText(status: number) {
     [ORDER_STATUS.WAIT_RETURN_CONFIRM]: '待归还确认',
     [ORDER_STATUS.COMPLETED]: '已完成',
     [ORDER_STATUS.CANCELLED]: '已取消',
-    [ORDER_STATUS.REJECTED]: '已拒绝',
-    [ORDER_STATUS.DISPUTE]: '争议中'
+    [ORDER_STATUS.REJECTED]: '已拒绝'
   }
   return map[status] ?? '未知'
 }
@@ -320,8 +317,7 @@ function statusTagType(status: number) {
     [ORDER_STATUS.WAIT_RETURN_CONFIRM]: 'info',
     [ORDER_STATUS.COMPLETED]: 'success',
     [ORDER_STATUS.CANCELLED]: 'default',
-    [ORDER_STATUS.REJECTED]: 'danger',
-    [ORDER_STATUS.DISPUTE]: 'danger'
+    [ORDER_STATUS.REJECTED]: 'danger'
   }
   return map[status] ?? 'info'
 }

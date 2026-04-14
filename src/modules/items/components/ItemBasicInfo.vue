@@ -5,12 +5,12 @@
         {{ item.title }}
       </h1>
       <div class="status-badges">
-        <el-tag 
-          :type="item.status === 'available' ? 'success' : 'warning'" 
+        <el-tag
+          :type="item.status === 'for_sale' || item.status === 1 ? 'success' : 'warning'"
           size="large"
           class="status-tag"
         >
-          {{ item.status === 'available' ? '可借用' : '已借出' }}
+          {{ item.status === 'for_sale' || item.status === 1 ? '待售' : '已售出' }}
         </el-tag>
         <el-tag
           v-if="item.isPopular"
@@ -61,8 +61,8 @@
       </div>
       <div class="detail-row">
         <span class="detail-label">状态：</span>
-        <el-tag :type="item.status === 1 || item.status === 'available' ? 'success' : (item.status === 2 || item.status === 'borrowed' ? 'warning' : 'info')">
-          {{ item.status === 1 || item.status === 'available' ? '可借用' : (item.status === 2 || item.status === 'borrowed' ? '已借出' : '已下架') }}
+        <el-tag :type="item.status === 1 || item.status === 'for_sale' ? 'success' : (item.status === 2 || item.status === 'sold' ? 'warning' : 'info')">
+          {{ item.status === 1 || item.status === 'for_sale' ? '待售' : (item.status === 2 || item.status === 'sold' ? '已售出' : '已下架') }}
         </el-tag>
       </div>
       <div class="detail-row">
