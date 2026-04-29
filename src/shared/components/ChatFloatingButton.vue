@@ -1,7 +1,7 @@
 <template>
   <div class="chat-container-wrapper">
     <transition name="scale-fade">
-      <div 
+      <div
         v-if="!showChatWindow && !isFullscreen && userStore.isLoggedIn"
         class="floating-btn-wrapper"
         @click="toggleChatWindow"
@@ -16,8 +16,8 @@
     </transition>
 
     <transition name="gemini-dialog">
-      <div 
-        v-if="showChatWindow && userStore.isLoggedIn" 
+      <div
+        v-if="showChatWindow && userStore.isLoggedIn"
         :class="['chat-window', { 'is-fullscreen': isFullscreen }]"
       >
         <div class="glass-header">
@@ -28,7 +28,7 @@
             <div class="header-text">
               <div class="ai-name">Campus AI <span class="beta-tag">Beta</span></div>
               <div class="ai-status">
-                <span class="status-dot"></span> 
+                <span class="status-dot"></span>
                 {{ isLoading ? '正在思考...' : '在线' }}
               </div>
             </div>
@@ -60,11 +60,11 @@
               </div>
               <h2 class="welcome-title">你好，我是你的交易助手</h2>
               <p class="welcome-subtitle">我可以帮你解答二手交易流程、价格咨询或发布商品相关的问题。</p>
-              
+
               <div class="suggestion-grid">
-                <div 
-                  v-for="(q, idx) in quickQuestions" 
-                  :key="idx" 
+                <div
+                  v-for="(q, idx) in quickQuestions"
+                  :key="idx"
                   class="suggestion-card"
                   @click="sendQuickQuestion(q)"
                 >
@@ -76,9 +76,9 @@
           </transition>
 
           <div class="message-list">
-            <div 
-              v-for="(msg, index) in messages" 
-              :key="index" 
+            <div
+              v-for="(msg, index) in messages"
+              :key="index"
               :class="['message-row', msg.role]"
             >
               <div v-if="msg.role === 'assistant'" class="avatar-col">
@@ -91,12 +91,12 @@
                 <div v-if="msg.role === 'user'" class="user-bubble">
                   {{ msg.content }}
                 </div>
-                
+
                 <div v-else class="ai-bubble-container">
                   <div v-if="msg.role === 'assistant'" class="ai-name-label">Campus AI</div>
-                  
-                  <div 
-                    v-if="msg.isLoading && !msg.content" 
+
+                  <div
+                    v-if="msg.isLoading && !msg.content"
                     class="loading-placeholder"
                   >
                     <span class="thinking-dots">
@@ -147,7 +147,7 @@
               ref="inputRef"
             />
             <div class="input-actions">
-              <el-button 
+              <el-button
                 v-if="isLoading"
                 class="stop-btn"
                 circle
@@ -155,9 +155,9 @@
               >
                 <el-icon><VideoPause /></el-icon>
               </el-button>
-              <el-button 
+              <el-button
                 v-else
-                class="send-btn" 
+                class="send-btn"
                 :class="{ 'has-text': userInput.trim() }"
                 circle
                 @click="sendMessage"
@@ -176,34 +176,27 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { 
-  Minus, Close, Promotion, Service, 
+import {
+  Minus, Close, Promotion, Service,
   FullScreen, CopyDocument, MagicStick, Right,
   StarFilled, RefreshRight, VideoPause
 } from '@element-plus/icons-vue'
 import { MarkdownRender, getMarkdown, parseMarkdownToStructure } from 'markstream-vue'
 import 'markstream-vue/index.css'
 import { useUserStore } from '@/shared/stores/user'
-
-interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-  isLoading: boolean
-  isFinal: boolean
-}
+import { useChatStream } from '@/modules/common/composables/useChatStream'
 
 const userStore = useUserStore()
 const showChatWindow = ref(false)
 const isFullscreen = ref(false)
 const isInputFocused = ref(false)
 const unreadCount = ref(0)
-const messages = ref<ChatMessage[]>([])
 const userInput = ref('')
-const isLoading = ref(false)
 const messagesContainer = ref<HTMLElement>()
 const inputRef = ref()
 const memoryId = ref(Date.now().toString())
-let controller: AbortController | null = null
+
+const { messages, isLoading, sendMessage: sendStream, stopResponse, clearMessages } = useChatStream()
 
 const md = getMarkdown('chat')
 
@@ -232,14 +225,6 @@ const scrollToBottom = async (force = false) => {
   }
 }
 
-const autoScroll = () => {
-  if (!messagesContainer.value) return
-  const el = messagesContainer.value
-  if (el.scrollHeight - el.scrollTop - el.clientHeight < 150) {
-    el.scrollTop = el.scrollHeight
-  }
-}
-
 const toggleChatWindow = () => {
   showChatWindow.value = !showChatWindow.value
   if (showChatWindow.value) scrollToBottom(true)
@@ -257,144 +242,24 @@ const minimizeChat = () => {
 const closeChat = () => {
   showChatWindow.value = false
   isFullscreen.value = false
-  messages.value = []
-  stopResponse()
+  clearMessages()
   memoryId.value = Date.now().toString()
 }
 
 const sendQuickQuestion = (q: string) => {
-  userInput.value = q.replace(/^[^\w\u4e00-\u9fa5]+/, '')
+  userInput.value = q.replace(/^[^\w一-龥]+/, '')
   sendMessage()
-}
-
-const stopResponse = () => {
-  if (controller) {
-    controller.abort()
-    controller = null
-  }
-  isLoading.value = false
-  if (messages.value.length > 0) {
-    const last = messages.value[messages.value.length - 1]
-    last.isLoading = false
-    last.isFinal = true
-  }
 }
 
 const sendMessage = async () => {
   const text = userInput.value.trim()
   if (!text || isLoading.value) return
 
-  stopResponse()
-  controller = new AbortController()
-
-  messages.value.push({ role: 'user', content: text, isLoading: false, isFinal: true })
   userInput.value = ''
-
-  const aiMsgIndex = messages.value.push({
-    role: 'assistant',
-    content: '',
-    isLoading: true,
-    isFinal: false,
-  }) - 1
-
-  isLoading.value = true
-  scrollToBottom(true)
-
-  try {
-    const apiBase = import.meta.env.DEV ? '/api' : 'https://ai.xzxfle.top'
-    const params = new URLSearchParams({ message: text, memoryId: memoryId.value })
-
-    const response = await fetch(`${apiBase}/ai/chat/stream?${params}`, {
-      method: 'POST',
-      headers: { Accept: '*/*' },
-      credentials: 'include',
-      signal: controller.signal,
-    })
-
-    if (!response.body) throw new Error('Stream Error')
-
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-    let thinkingBuffer = ''
-    let isInThinking = false
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
-
-      for (const line of lines) {
-        if (!line.trim()) continue
-        
-        // 处理 "data:data:" 双重前缀或单个 "data:" 前缀
-        let jsonStr = line.trim()
-        if (jsonStr.startsWith('data:data:')) {
-          jsonStr = jsonStr.replace(/^data:data:\s*/, '').trim()
-        } else if (jsonStr.startsWith('data:')) {
-          jsonStr = jsonStr.replace(/^data:\s*/, '').trim()
-        }
-        
-        if (!jsonStr) continue
-
-        try {
-          const json = JSON.parse(jsonStr)
-          let content = json.content ?? ''
-          
-          if (!content) continue
-
-          // 处理思考标签 (可能跨多个消息块)
-          thinkingBuffer += content
-          
-          // 检查是否包含 <think> 开始标签
-          if (thinkingBuffer.includes('<think>')) {
-            isInThinking = true
-          }
-          
-          // 如果在思考中,检查是否有结束标签
-          if (isInThinking) {
-            if (thinkingBuffer.includes('</think>')) {
-              // 移除所有思考内容,保留 </think> 后面的内容
-              thinkingBuffer = thinkingBuffer.replace(/[\s\S]*?<\/think>\s*/g, '')
-              isInThinking = false
-              
-              // 如果还有剩余内容,添加到消息中
-              if (thinkingBuffer) {
-                messages.value[aiMsgIndex].content += thinkingBuffer
-                messages.value[aiMsgIndex].isLoading = false
-              }
-              thinkingBuffer = ''
-            }
-            // 还在思考中,不添加任何内容,继续累积到 buffer
-          } else {
-            // 不在思考中,直接添加内容
-            messages.value[aiMsgIndex].content += thinkingBuffer
-            messages.value[aiMsgIndex].isLoading = false
-            thinkingBuffer = ''
-          }
-        } catch {
-          // 忽略无法解析的行
-        }
-      }
-
-      await nextTick()
-      autoScroll()
-    }
-
-  } catch (err: any) {
-    if (err.name !== 'AbortError') {
-      messages.value[aiMsgIndex].content += '\n\n*(网络连接中断，请重试)*'
-      messages.value[aiMsgIndex].isLoading = false
-    }
-  } finally {
-    messages.value[aiMsgIndex].isFinal = true
-    isLoading.value = false
-    controller = null
-    scrollToBottom(true)
-  }
+  await sendStream(text, {
+    apiBase: import.meta.env.DEV ? '/api' : 'https://ai.xzxfle.top',
+    memoryId: memoryId.value
+  }, () => scrollToBottom())
 }
 
 const copyToClipboard = (text: string) => {
@@ -414,7 +279,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
   --primary-color: #03a688;
   --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
   --radius-lg: 24px;
-  
+
   position: fixed;
   bottom: 30px;
   right: 30px;
@@ -429,7 +294,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
   cursor: pointer;
   z-index: 2000;
   transform-origin: bottom right;
-  
+
   &:hover .floating-button {
     transform: scale(1.1) rotate(-5deg);
   }
@@ -473,7 +338,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
   border: 1px solid rgba(0,0,0,0.06);
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: bottom right;
-  
+
   @media (max-width: 480px) {
     position: fixed !important;
     bottom: 0 !important;
@@ -576,7 +441,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
   cursor: pointer;
   color: #5f6368;
   transition: all 0.2s;
-  
+
   &:hover {
     background: #f1f3f4;
     color: #1f1f1f;
@@ -650,27 +515,27 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
   display: flex;
   justify-content: space-between;
   align-items: center;
-  
+
   &:hover {
     background: #e6f9f5;
     border-color: #b4f3e6;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(3, 166, 136, 0.1);
   }
-  
+
   .suggestion-text {
     font-size: 13px;
     color: #3c4043;
     font-weight: 500;
   }
-  
+
   .arrow-icon {
     opacity: 0;
     transition: opacity 0.2s;
     font-size: 14px;
     color: #03a688;
   }
-  
+
   &:hover .arrow-icon {
     opacity: 1;
   }
@@ -687,7 +552,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
   display: flex;
   gap: 16px;
   animation: slideIn 0.3s ease-out forwards;
-  
+
   &.user {
     justify-content: flex-end;
   }
@@ -746,13 +611,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
   margin-top: 10px;
   opacity: 0;
   transition: opacity 0.2s;
-  
+
   .action-icon {
     cursor: pointer;
     color: #9aa0a6;
     font-size: 18px;
     transition: all 0.2s;
-    
+
     &:hover {
       color: #5f6368;
       transform: scale(1.1);
@@ -778,7 +643,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
   align-items: center;
   transition: all 0.3s;
   border: 2px solid transparent;
-  
+
   &.is-focused {
     background: white;
     border-color: #b4f3e6;
@@ -796,7 +661,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
     font-size: 14px;
     line-height: 20px;
     min-height: 20px;
-    
+
     &::placeholder {
       color: #8e9196;
     }
@@ -818,12 +683,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
   width: 36px;
   height: 36px;
   font-size: 18px;
-  
+
   &.has-text {
     background: var(--primary-color);
     color: white;
   }
-  
+
   &:hover.has-text {
     background: #028a73;
     box-shadow: 0 2px 6px rgba(3, 166, 136, 0.3);
@@ -836,7 +701,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
   background: #fce8e6;
   width: 36px;
   height: 36px;
-  
+
   &:hover {
     background: #fad2cf;
   }

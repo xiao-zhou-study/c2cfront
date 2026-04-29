@@ -162,7 +162,7 @@ function adaptBorrowOrderFromDetail(data: any): BorrowOrder {
     itemId: String(data.itemId ?? ''),
     borrowerId: String(data.borrowerId ?? ''),
     lenderId: String(data.lenderId ?? ''),
-    billingType: billingMap[data.billingType] ?? 'per_day',
+    billingType: billingMap[data.billingType],
     lenderName: data.lenderName,
     lenderAvatar: data.lenderAvatar,
     // 后端接口字段兼容：buyerName/buyerAvatarUrl → borrowerName/borrowerAvatar
@@ -342,6 +342,15 @@ export function reviewOrder(data: {
   isAnonymous?: boolean
 }): Promise<number> {
   return request.post('/os/borrow_orders/review', data)
+}
+
+/**
+ * 查询支付状态（轮询用）
+ * GET /os/borrow_orders/pay/status?orderNo=xxx
+ * @returns 订单当前状态码：1-待确认 2-待付款 3-交易中(已支付) 4-待评价 5-已完成 6-已取消 7-已拒绝
+ */
+export function getPayStatus(orderNo: string): Promise<number> {
+  return request.get<number>('/os/borrow_orders/pay/status', { params: { orderNo } })
 }
 
 /**

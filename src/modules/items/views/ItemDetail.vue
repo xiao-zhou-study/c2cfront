@@ -1,248 +1,325 @@
 <template>
-  <div class="item-detail-page">
-    <!-- 顶部导航 -->
-    <header class="top-bar">
-      <div class="top-bar-inner">
-        <el-button text @click="goBack">
-          <el-icon><ArrowLeft /></el-icon>
-          返回
-        </el-button>
-        <el-breadcrumb separator="/">
-          <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
-          <el-breadcrumb-item :to="{ path: '/items' }">物品广场</el-breadcrumb-item>
-          <el-breadcrumb-item v-if="item" class="current">{{ item.title }}</el-breadcrumb-item>
-        </el-breadcrumb>
-        <el-button text @click="handleShare">
-          <el-icon><Share /></el-icon>
-          分享
-        </el-button>
-      </div>
-    </header>
+  <div class="item-detail">
+    <!-- ==================== 移动端布局 ==================== -->
+    <div class="layout-mobile">
+      <!-- Hero 图片轮播区域 -->
+      <div class="hero-gallery">
+        <div
+          class="hero-slides"
+          :style="{ transform: `translateX(-${currentIndex * 100}%)` }"
+          @touchstart="onTouchStart"
+          @touchmove="onTouchMove"
+          @touchend="onTouchEnd"
+        >
+          <div
+            v-for="(img, i) in (item?.images?.length ? item.images : [DEFAULT_IMG])"
+            :key="i"
+            class="hero-slide"
+          >
+            <img :src="img" :alt="item?.title || '物品图片'" @click="openViewer">
+          </div>
+        </div>
 
-    <!-- 加载 -->
-    <div v-if="loading" class="loading-wrap">
-      <el-skeleton :rows="12" animated />
+        <!-- 顶部操作栏 -->
+        <div class="hero-actions">
+          <button class="hero-btn" @click="goBack">
+            <el-icon><ArrowLeft /></el-icon>
+          </button>
+          <button class="hero-btn" @click="handleShare">
+            <el-icon><Share /></el-icon>
+          </button>
+        </div>
+
+        <!-- 轮播指示器 -->
+        <div v-if="imagesCount > 1" class="hero-dots">
+          <span
+            v-for="i in imagesCount"
+            :key="i"
+            :class="['dot', { active: i - 1 === currentIndex }]"
+            @click="currentIndex = i - 1"
+          />
+        </div>
+
+        <!-- 图片计数 -->
+        <div v-if="imagesCount > 1" class="hero-counter">{{ currentIndex + 1 }}/{{ imagesCount }}</div>
+      </div>
+
+      <!-- 加载骨架屏 -->
+      <div v-if="loading" class="content-skeleton">
+        <el-skeleton :rows="8" animated />
+      </div>
+
+      <!-- 主内容 -->
+      <main v-else-if="item" class="content">
+        <!-- 悬浮信息卡片（重叠在 Hero 上方） -->
+        <div class="float-card price-card">
+          <div class="price-row">
+            <div class="price-display">
+              <span class="price-symbol">¥</span>
+              <span class="price-value">{{ formatPrice(item.price) }}</span>
+            </div>
+            <div class="status-badge" :class="statusBadgeClass">{{ statusText }}</div>
+          </div>
+          <h1 class="item-title">{{ item.title }}</h1>
+          <div class="tag-row">
+            <span v-if="hasConditionDisplay(item.conditionLevel)" class="tag condition" :class="conditionClass(item.conditionLevel)">
+              {{ conditionText(item.conditionLevel) }}
+            </span>
+            <span v-if="item.categoryName" class="tag category">{{ item.categoryName }}</span>
+          </div>
+        </div>
+
+        <!-- 卖家卡片 -->
+        <div class="float-card seller-card">
+          <div class="seller-row">
+            <el-avatar :src="item.ownerAvatar || item.avatar" :size="48">
+              {{ item.ownerName?.charAt(0) || item.username?.charAt(0) || 'U' }}
+            </el-avatar>
+            <div class="seller-info">
+              <span class="seller-name">{{ item.ownerName || item.username || '未知用户' }}</span>
+              <span class="seller-meta">发布于 {{ formatTime(item.createdAt) }}</span>
+            </div>
+            <el-button
+              v-if="!isOwner"
+              size="small"
+              class="seller-chat-btn"
+              @click="handleContact"
+            >
+              <el-icon><ChatDotRound /></el-icon>
+              联系卖家
+            </el-button>
+          </div>
+        </div>
+
+        <!-- 物品信息网格 -->
+        <div class="float-card info-grid">
+          <div class="info-cell">
+            <el-icon><Location /></el-icon>
+            <span class="info-label">交易地点</span>
+            <span class="info-value">{{ item.location || '未指定' }}</span>
+            <span v-if="item.address" class="info-sub">{{ item.address }}</span>
+          </div>
+          <div class="info-cell">
+            <el-icon><View /></el-icon>
+            <span class="info-label">浏览量</span>
+            <span class="info-value">{{ item.viewCount || 0 }}</span>
+          </div>
+          <div class="info-cell">
+            <el-icon><Calendar /></el-icon>
+            <span class="info-label">发布时间</span>
+            <span class="info-value">{{ formatRelativeTime(item.createdAt) }}</span>
+          </div>
+        </div>
+
+        <!-- Tab 切换：描述 / 留言 -->
+        <div class="float-card tab-card">
+          <div class="tab-header">
+            <button
+              :class="['tab-btn', { active: activeTab === 'description' }]"
+              @click="activeTab = 'description'"
+            >
+              <el-icon><Document /></el-icon>
+              物品描述
+            </button>
+            <button
+              :class="['tab-btn', { active: activeTab === 'messages' }]"
+              @click="activeTab = 'messages'"
+            >
+              <el-icon><ChatDotRound /></el-icon>
+              留言
+              <span v-if="messageList.length" class="tab-badge">{{ messageList.length }}</span>
+            </button>
+          </div>
+
+          <!-- 描述面板 -->
+          <div v-show="activeTab === 'description'" class="tab-panel">
+            <ItemDescription :item="item" />
+          </div>
+
+          <!-- 留言面板 -->
+          <div v-show="activeTab === 'messages'" class="tab-panel">
+            <div class="message-input-wrap">
+              <el-input
+                v-model="messageInput"
+                type="textarea"
+                :rows="2"
+                placeholder="对这个物品感兴趣？给卖家留言吧…"
+                maxlength="500"
+                :disabled="messageSending"
+              />
+              <el-button
+                type="primary"
+                :loading="messageSending"
+                :disabled="!messageInput.trim()"
+                @click="sendMessage"
+              >
+                发送
+              </el-button>
+            </div>
+
+            <div v-if="messageList.length === 0" class="message-empty">
+              <el-empty description="暂无留言，快来抢沙发吧~" :image-size="80" />
+            </div>
+            <div v-else class="message-stream">
+              <div v-for="msg in messageList" :key="msg.id" class="msg-card">
+                <el-avatar :size="36" class="msg-avatar">
+                  {{ msg.userName?.charAt(0) || 'U' }}
+                </el-avatar>
+                <div class="msg-content">
+                  <div class="msg-header">
+                    <span class="msg-user">{{ msg.userName || '匿名' }}</span>
+                    <span class="msg-time">{{ msg.timeText }}</span>
+                  </div>
+                  <p class="msg-text">{{ msg.content }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 底部占位（避免被固定栏遮挡） -->
+        <div class="bottom-spacer" />
+      </main>
+
+      <!-- 底部固定操作栏 -->
+      <div v-if="item" class="action-bar">
+        <div class="action-bar-inner">
+          <el-button
+            type="primary"
+            size="large"
+            :disabled="!isAvailable"
+            class="bar-btn-primary"
+            @click="handleBuy"
+          >
+            <el-icon><ShoppingCart /></el-icon>
+            <span>{{ isAvailable ? '发起购买申请' : '已售出' }}</span>
+          </el-button>
+        </div>
+      </div>
     </div>
 
-    <!-- 主内容 -->
-    <main v-else-if="item" class="main">
-      <!-- 卖家信息栏 -->
-      <div class="owner-bar">
-        <el-avatar :src="item.ownerAvatar || item.avatar" :size="44">
-          {{ item.ownerName?.charAt(0) || item.username?.charAt(0) || 'U' }}
-        </el-avatar>
-        <div class="owner-info">
-          <span class="owner-name">{{ item.ownerName || item.username || '未知用户' }}</span>
-          <span class="owner-tip">卖家</span>
+    <!-- ==================== 桌面端布局 ==================== -->
+    <div v-if="item && !loading" class="layout-desktop">
+      <!-- 顶部卖家信息条 -->
+      <div class="dt-seller-bar">
+        <div class="dt-seller-inner">
+          <el-avatar :src="item.ownerAvatar || item.avatar" :size="40">
+            {{ item.ownerName?.charAt(0) || item.username?.charAt(0) || 'U' }}
+          </el-avatar>
+          <div class="dt-seller-info">
+            <div class="dt-seller-name-wrap">
+              <span class="dt-seller-name">{{ item.ownerName || item.username || '未知用户' }}</span>
+            </div>
+            <div class="dt-seller-meta">
+              {{ item.location || '未指定' }} · 发布于 {{ formatTime(item.createdAt) }}
+            </div>
+          </div>
+          <div class="dt-seller-actions">
+            <button class="dt-share-btn" @click="handleShare">
+              <el-icon><Share /></el-icon>
+            </button>
+          </div>
         </div>
-        <el-button 
-          v-if="!isOwner" 
-          text 
-          type="primary" 
-          class="btn-contact"
-          @click="handleContact"
-        >
-          <el-icon><ChatDotRound /></el-icon>
-          联系卖家
-        </el-button>
       </div>
 
-      <div class="detail-card">
-        <!-- 左侧：图片轮播 -->
-        <div class="gallery">
-          <div
-            class="main-pic-wrap"
-            @mouseenter="pauseAutoplay"
-            @mouseleave="resumeAutoplay"
-          >
-            <img
-              :src="currentImageUrl"
-              :alt="item.title"
-              class="main-pic"
-              @click="openViewer"
-            >
-            <div v-if="imagesCount > 1" class="nav-arrows">
-              <el-button
-                class="arrow"
-                circle
-                :disabled="currentIndex === 0"
+      <div class="dt-main">
+        <!-- 左侧图片区 -->
+        <div class="dt-left">
+          <div class="dt-gallery">
+            <!-- 缩略图列表 -->
+            <div class="dt-thumb-list">
+              <div
+                v-for="(img, i) in (item?.images?.length ? item.images : [DEFAULT_IMG])"
+                :key="i"
+                :class="['dt-thumb-item', { active: i === currentIndex }]"
+                @click="currentIndex = i"
+              >
+                <img :src="img" alt="">
+              </div>
+            </div>
+            <!-- 大图区 -->
+            <div class="dt-main-image">
+              <button
+                v-if="imagesCount > 1"
+                class="dt-arrow dt-arrow-left"
                 @click="prevImage"
               >
                 <el-icon><ArrowLeft /></el-icon>
-              </el-button>
-              <el-button
-                class="arrow"
-                circle
-                :disabled="currentIndex === imagesCount - 1"
+              </button>
+              <img
+                :src="item?.images?.[currentIndex] || DEFAULT_IMG"
+                :alt="item.title"
+                @click="openViewer"
+              >
+              <button
+                v-if="imagesCount > 1"
+                class="dt-arrow dt-arrow-right"
                 @click="nextImage"
               >
                 <el-icon><ArrowRight /></el-icon>
-              </el-button>
-            </div>
-            <div v-if="imagesCount > 1" class="indicator">
-              {{ currentIndex + 1 }} / {{ imagesCount }}
+              </button>
+              <div v-if="imagesCount > 1" class="dt-image-counter">
+                {{ currentIndex + 1 }} / {{ imagesCount }}
+              </div>
             </div>
           </div>
-          <div v-if="imagesCount > 1" class="thumbnails">
-            <div
-              v-for="(img, i) in item.images"
-              :key="i"
-              :class="['thumbnail-item', { active: currentIndex === i }]"
-              @click="currentIndex = i"
-            >
-              <img :src="img" :alt="`图片${i + 1}`">
-            </div>
+          <div class="dt-trust-bar">
+            <span class="dt-trust-item">
+              <el-icon class="dt-trust-icon"><CircleCheckFilled /></el-icon>
+              担保交易
+            </span>
+            <span class="dt-trust-dot">·</span>
+            <span class="dt-trust-item">举报</span>
           </div>
         </div>
 
-        <!-- 右侧：商品信息 -->
-        <div class="info">
-          <h1 class="title">{{ item.title }}</h1>
-          
-          <div class="tags">
-            <el-tag v-if="hasConditionDisplay(item.conditionLevel)" size="large" :type="conditionTagType(item.conditionLevel)">
-              {{ conditionText(item.conditionLevel) }}
-            </el-tag>
-            <el-tag :type="statusTagType" size="large">
-              {{ statusText }}
-            </el-tag>
-            <el-tag v-if="item.categoryName" size="large" type="info" effect="plain">
-              {{ item.categoryName }}
-            </el-tag>
-          </div>
-
-          <!-- 价格区域 -->
-          <div class="price-block">
-            <div class="price-main">
-              <span class="price-label">出售价格</span>
-              <div class="price">
-                <span class="currency">¥</span>
-                <span class="num">{{ formatPrice(item.price) }}</span>
+        <!-- 右侧信息区 -->
+        <div class="dt-right">
+          <!-- 价格 -->
+          <div class="dt-price-section">
+            <div class="dt-price-row">
+              <div class="dt-price-main">
+                <span class="dt-price-symbol">¥</span>
+                <span class="dt-price-value">{{ formatPrice(item.price) }}</span>
               </div>
             </div>
           </div>
 
-          <!-- 物品属性 -->
-          <div class="specs">
-            <div class="spec-item">
-              <div class="spec-icon">
-                <el-icon><Location /></el-icon>
-              </div>
-              <div class="spec-content">
-                <span class="spec-label">交易地点</span>
-                <span class="spec-val">{{ item.location || '未填写' }}</span>
-                <span v-if="item.address" class="spec-detail">{{ item.address }}</span>
-              </div>
-            </div>
-            
-            <div class="spec-item">
-              <div class="spec-icon">
-                <el-icon><Calendar /></el-icon>
-              </div>
-              <div class="spec-content">
-                <span class="spec-label">发布时间</span>
-                <span class="spec-val">{{ formatTime(item.createdAt) }}</span>
-              </div>
-            </div>
-            
-            <div class="spec-item">
-              <div class="spec-icon">
-                <el-icon><View /></el-icon>
-              </div>
-              <div class="spec-content">
-                <span class="spec-label">浏览次数</span>
-                <span class="spec-val">{{ item.viewCount || 0 }} 次</span>
-              </div>
+          <!-- 标题和标签 -->
+          <div class="dt-title-section">
+            <h1 class="dt-item-title">{{ item.title }}</h1>
+            <div class="dt-tag-row">
+              <span v-if="hasConditionDisplay(item.conditionLevel)" class="dt-tag" :class="conditionClass(item.conditionLevel)">
+                {{ conditionText(item.conditionLevel) }}
+              </span>
+              <span v-if="item.categoryName" class="dt-tag dt-tag-cat">{{ item.categoryName }}</span>
+              <span class="dt-tag dt-tag-status" :class="statusBadgeClass">{{ statusText }}</span>
             </div>
           </div>
 
-          <!-- 操作按钮 -->
-          <div class="actions">
-            <el-button
-              type="primary"
-              size="large"
-              :disabled="!isAvailable"
-              class="btn-buy"
-              @click="handleBuy"
-            >
-              <el-icon><ShoppingCart /></el-icon>
-              <span>{{ isAvailable ? '发起购买申请' : '已售出' }}</span>
-            </el-button>
-            <el-button
-              size="large"
-              :class="{ favorited: isFavorited }"
-              class="btn-fav"
-              @click="handleFavorite"
-            >
-              <el-icon><Star /></el-icon>
-              <span>{{ isFavorited ? '已收藏' : '收藏' }}</span>
-            </el-button>
+          <!-- 描述 -->
+          <div class="dt-desc-section">
+            <ItemDescription :item="item" />
           </div>
 
-          <div v-if="!isAvailable" class="tip">
-            <el-alert title="该物品已售出" type="info" :closable="false" show-icon />
+          <!-- 桌面端操作栏 -->
+          <div class="dt-action-bar">
+            <div class="dt-action-inner">
+              <button v-if="!isOwner" class="dt-chat-btn" @click="handleContact">
+                <el-icon><ChatDotRound /></el-icon>
+                <span>聊一聊</span>
+              </button>
+              <button class="dt-buy-btn" :disabled="!isAvailable" @click="handleBuy">
+                <span>{{ isAvailable ? '立即购买' : '已售出' }}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
-
-      <!-- 物品描述 -->
-      <section class="section">
-        <h3 class="section-title">
-          <el-icon class="title-icon"><Document /></el-icon>
-          物品描述
-        </h3>
-        <ItemDescription :item="item" />
-      </section>
-
-      <!-- 留言板块 -->
-      <section class="section">
-        <h3 class="section-title">
-          <el-icon class="title-icon"><ChatDotRound /></el-icon>
-          留言咨询
-        </h3>
-        <div class="message-form">
-          <el-input
-            v-model="messageInput"
-            type="textarea"
-            :rows="3"
-            placeholder="对这个物品感兴趣？给卖家留言吧…"
-            maxlength="500"
-            show-word-limit
-            class="message-input"
-          />
-          <el-button
-            type="primary"
-            :loading="messageSending"
-            :disabled="!messageInput.trim()"
-            class="btn-send"
-            @click="sendMessage"
-          >
-            <el-icon v-if="!messageSending"><Position /></el-icon>
-            <span>发送留言</span>
-          </el-button>
-        </div>
-        <div v-if="messageList.length === 0" class="message-placeholder">
-          <el-empty description="暂无留言，快来抢沙发吧~" />
-        </div>
-        <ul v-else class="message-list">
-          <li v-for="msg in messageList" :key="msg.id" class="message-item">
-            <el-avatar :size="32" class="message-avatar">
-              {{ msg.userName?.charAt(0) || 'U' }}
-            </el-avatar>
-            <div class="message-body">
-              <div class="message-meta">
-                <span class="message-user">{{ msg.userName || '匿名' }}</span>
-                <span class="message-time">{{ msg.timeText }}</span>
-              </div>
-              <p class="message-content">{{ msg.content }}</p>
-            </div>
-          </li>
-        </ul>
-      </section>
-    </main>
+    </div>
 
     <!-- 不存在 -->
-    <div v-else class="empty-state">
+    <div v-if="!item && !loading" class="empty-state">
       <el-result icon="error" title="物品不存在" sub-title="该物品不存在或已被删除。">
         <template #extra>
           <el-button type="primary" @click="router.push('/items')">返回物品广场</el-button>
@@ -272,13 +349,12 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Star, Share, ArrowLeft, ArrowRight,
+  Share, ArrowLeft, ArrowRight,
   ChatDotRound, Location, Calendar, View,
-  Document, Position, ShoppingCart
+  Document, ShoppingCart, CircleCheckFilled
 } from '@element-plus/icons-vue'
 import { itemApi, orderApi } from '../../../shared/api'
 import { useUserStore } from '../../../shared/stores/user'
-import { useChatStore } from '../../../shared/stores/chat'
 import type { Item } from '../../../shared/types/models'
 import ItemDescription from '../components/ItemDescription.vue'
 import ChatDialog from '../../../shared/components/ChatDialog.vue'
@@ -286,18 +362,40 @@ import ChatDialog from '../../../shared/components/ChatDialog.vue'
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
-const chatStore = useChatStore()
 
 const loading = ref(false)
 const item = ref<Item | null>(null)
-const isFavorited = ref(false)
 const currentIndex = ref(0)
 const showViewer = ref(false)
 const messageInput = ref('')
 const messageSending = ref(false)
 const messageList = ref<{ id: string; content: string; userName: string; timeText: string }[]>([])
+const activeTab = ref<'description' | 'messages'>('description')
 
-const FAVORITES_KEY = 'item_favorites'
+// 触摸滑动
+const touchStartX = ref(0)
+const touchDeltaX = ref(0)
+
+function onTouchStart(e: TouchEvent) {
+  touchStartX.value = e.touches[0].clientX
+  touchDeltaX.value = 0
+}
+
+function onTouchMove(e: TouchEvent) {
+  touchDeltaX.value = e.touches[0].clientX - touchStartX.value
+}
+
+function onTouchEnd() {
+  if (Math.abs(touchDeltaX.value) > 50) {
+    if (touchDeltaX.value > 0 && currentIndex.value > 0) {
+      currentIndex.value--
+    } else if (touchDeltaX.value < 0 && currentIndex.value < imagesCount.value - 1) {
+      currentIndex.value++
+    }
+  }
+  touchDeltaX.value = 0
+}
+
 const MESSAGES_KEY_PREFIX = 'item_messages_'
 const DEFAULT_IMG = 'https://via.placeholder.com/600x600?text=暂无图片'
 const AUTOPLAY_MS = 4000
@@ -319,12 +417,6 @@ function openChat() {
 }
 
 // 计算属性
-const currentImageUrl = computed(() => {
-  const list = item.value?.images
-  if (!list?.length) return DEFAULT_IMG
-  return list[currentIndex.value] || DEFAULT_IMG
-})
-
 const imagesCount = computed(() => item.value?.images?.length ?? 0)
 
 const isAvailable = computed(() => item.value?.status === 1)
@@ -337,12 +429,9 @@ const statusText = computed(() => {
   return '未知'
 })
 
-const statusTagType = computed(() => {
-  const status = item.value?.status
-  if (status === 1) return 'success'
-  if (status === 2) return 'info'
-  if (status === 3) return 'warning'
-  return 'info'
+const statusBadgeClass = computed(() => {
+  const map: Record<number, string> = { 1: 'badge-onsale', 2: 'badge-sold', 3: 'badge-offshelf' }
+  return map[item.value?.status ?? 0] || ''
 })
 
 const isOwner = computed(() => {
@@ -375,17 +464,10 @@ function formatTime(timestamp: number | string | undefined): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-function getFavorites(): string[] {
-  try {
-    const s = localStorage.getItem(FAVORITES_KEY)
-    return s ? JSON.parse(s) : []
-  } catch {
-    return []
-  }
-}
-
-function setFavorites(ids: string[]) {
-  localStorage.setItem(FAVORITES_KEY, JSON.stringify(ids))
+function formatRelativeTime(timestamp: number | string | undefined): string {
+  if (!timestamp) return '未知'
+  const date = new Date(typeof timestamp === 'string' ? parseInt(timestamp) : timestamp)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 function getMessagesKey(): string {
@@ -443,7 +525,6 @@ async function loadDetail() {
   loading.value = true
   try {
     item.value = await itemApi.getItemDetail(id)
-    isFavorited.value = getFavorites().includes(id)
     loadMessages()
   } catch (e) {
     console.error(e)
@@ -493,23 +574,6 @@ async function handleBuy() {
   }
 }
 
-function handleFavorite() {
-  const id = item.value?.id
-  if (!id) return
-  const strId = String(id)
-  const list = getFavorites()
-  if (isFavorited.value) {
-    setFavorites(list.filter((x) => x !== strId))
-    isFavorited.value = false
-    ElMessage.success('已取消收藏')
-  } else {
-    if (!list.includes(strId)) list.push(strId)
-    setFavorites(list)
-    isFavorited.value = true
-    ElMessage.success('已收藏')
-  }
-}
-
 function handleShare() {
   const url = window.location.href
   if (navigator.share) {
@@ -519,23 +583,27 @@ function handleShare() {
   }
 }
 
-function prevImage() {
-  if (currentIndex.value > 0) currentIndex.value--
-}
-
-function nextImage() {
-  if (currentIndex.value < imagesCount.value - 1) currentIndex.value++
-}
-
 function openViewer() {
   if (item.value?.images?.length) showViewer.value = true
 }
 
+function prevImage() {
+  if (currentIndex.value > 0) {
+    currentIndex.value--
+  }
+}
+
+function nextImage() {
+  if (currentIndex.value < imagesCount.value - 1) {
+    currentIndex.value++
+  }
+}
+
 // 成色枚举：BRAND_NEW(0) 全新, ALMOST_NEW(1) 九成新, GENTLY_USED(2) 八成新
-const CONDITION_LEVELS: Record<number, { text: string; type: 'success' | 'info' | 'warning' }> = {
-  0: { text: '全新', type: 'success' },
-  1: { text: '九成新', type: 'info' },
-  2: { text: '八成新', type: 'warning' }
+const CONDITION_LEVELS: Record<number, { text: string; cls: string }> = {
+  0: { text: '全新', cls: 'cond-new' },
+  1: { text: '九成新', cls: 'cond-like-new' },
+  2: { text: '八成新', cls: 'cond-used' }
 }
 
 function hasConditionDisplay(level?: string | number): boolean {
@@ -544,14 +612,14 @@ function hasConditionDisplay(level?: string | number): boolean {
   return Number.isInteger(n) && n >= 0 && n <= 2
 }
 
-function conditionTagType(level: string | number): 'success' | 'info' | 'warning' {
-  const n = Number(level)
-  return CONDITION_LEVELS[n]?.type ?? 'info'
-}
-
 function conditionText(level: string | number): string {
   const n = Number(level)
   return CONDITION_LEVELS[n]?.text ?? ''
+}
+
+function conditionClass(level: string | number): string {
+  const n = Number(level)
+  return CONDITION_LEVELS[n]?.cls ?? ''
 }
 
 function startAutoplay() {
@@ -568,14 +636,6 @@ function stopAutoplay() {
   }
 }
 
-function pauseAutoplay() {
-  stopAutoplay()
-}
-
-function resumeAutoplay() {
-  startAutoplay()
-}
-
 onMounted(() => {
   loadDetail()
   setTimeout(startAutoplay, 500)
@@ -585,744 +645,1126 @@ onUnmounted(stopAutoplay)
 </script>
 
 <style scoped>
-.item-detail-page {
+.item-detail {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f0fdf8 0%, #f8fffe 50%, #f0f9ff 100%);
+  background: #f5f5f7;
 }
 
-.top-bar {
-  position: sticky;
-  top: 0;
-  z-index: 100;
+/* ==================== 布局切换 ==================== */
+.layout-desktop {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .layout-mobile {
+    display: none;
+  }
+
+  .layout-desktop {
+    display: block;
+  }
+
+  .item-detail {
+    background: #fff;
+  }
+}
+
+/* ==================== 移动端：Hero Gallery ==================== */
+.hero-gallery {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #000;
+}
+
+.hero-slides {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.hero-slide {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  cursor: pointer;
+}
+
+.hero-actions {
+  position: absolute;
+  top: env(safe-area-inset-top, 12px);
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  z-index: 10;
+}
+
+.hero-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hero-btn:hover {
+  background: rgba(0, 0, 0, 0.65);
+  transform: scale(1.05);
+}
+
+.hero-dots {
+  position: absolute;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dot.active {
   background: #fff;
-  border-bottom: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  width: 20px;
+  border-radius: 4px;
 }
 
-.top-bar-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 14px 20px;
+.hero-counter {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  backdrop-filter: blur(4px);
+}
+
+/* ==================== 移动端：Content ==================== */
+.content {
+  position: relative;
+  max-width: 800px;
+  margin: -40px auto 0;
+  padding: 0 16px 100px;
+  z-index: 5;
+}
+
+.content-skeleton {
+  max-width: 800px;
+  margin: -40px auto 0;
+  padding: 0 16px;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+}
+
+.float-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.price-card {
+  margin-top: 0;
+}
+
+.price-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 12px;
 }
 
-.top-bar-inner .current {
-  color: #999;
-  max-width: 280px;
+.price-display {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.price-symbol {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ff5722;
+}
+
+.price-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #ff5722;
+  line-height: 1;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.badge-onsale {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.badge-sold {
+  background: #f5f5f5;
+  color: #9e9e9e;
+}
+
+.badge-offshelf {
+  background: #fff3e0;
+  color: #ef6c00;
+}
+
+.item-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.tag-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag.condition {
+  border: 1px solid;
+}
+
+.cond-new {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-color: #a5d6a7;
+}
+
+.cond-like-new {
+  background: #e3f2fd;
+  color: #1565c0;
+  border-color: #90caf9;
+}
+
+.cond-used {
+  background: #fff3e0;
+  color: #ef6c00;
+  border-color: #ffcc80;
+}
+
+.tag.category {
+  background: #f5f5f5;
+  color: #616161;
+  border: 1px solid #e0e0e0;
+}
+
+/* 卖家卡片 */
+.seller-card {
+  padding: 16px 20px;
+}
+
+.seller-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.seller-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.seller-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.loading-wrap {
-  max-width: 1200px;
-  margin: 24px auto;
-  padding: 32px;
+.seller-meta {
+  font-size: 12px;
+  color: #9e9e9e;
+}
+
+.seller-chat-btn {
+  padding: 8px 16px;
+  border: 1.5px solid #4caf50;
   background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  color: #4caf50;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 20px;
+  gap: 4px;
+  transition: all 0.2s;
 }
 
-.main {
-  max-width: 1200px;
-  margin: 24px auto;
-  padding: 0 20px;
+.seller-chat-btn:hover {
+  background: #4caf50;
+  color: #fff;
 }
 
-/* 卖家信息栏 */
-.owner-bar {
+.seller-chat-btn .el-icon {
+  font-size: 16px;
+  color: #4caf50;
+}
+
+.seller-chat-btn:hover .el-icon {
+  color: #fff;
+}
+
+/* 信息网格 */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.info-cell {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 16px 24px;
-  margin-bottom: 20px;
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  gap: 4px;
+  padding: 20px 12px;
+  text-align: center;
+  position: relative;
 }
 
-.owner-info {
+.info-cell:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 20%;
+  height: 60%;
+  width: 1px;
+  background: #f0f0f0;
+}
+
+.info-cell .el-icon {
+  font-size: 22px;
+  color: #757575;
+  margin-bottom: 4px;
+}
+
+.info-label {
+  font-size: 12px;
+  color: #9e9e9e;
+}
+
+.info-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.info-sub {
+  font-size: 12px;
+  color: #bdbdbd;
+}
+
+/* Tab Card */
+.tab-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.tab-header {
+  display: flex;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.tab-btn {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.owner-name {
-  font-size: 17px;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.owner-tip {
-  font-size: 13px;
-  color: #9ca3af;
-}
-
-.btn-contact {
-  font-size: 14px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  border: none;
+  background: none;
+  font-size: 15px;
   font-weight: 500;
-  background: linear-gradient(135deg, #03a688 0%, #02c39a 100%);
-  color: #fff !important;
-  padding: 8px 20px;
-  border-radius: 10px;
-  border: none;
-  transition: all 0.3s;
-}
-
-.btn-contact:hover {
-  background: linear-gradient(135deg, #02c39a 0%, #03a688 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(3, 166, 136, 0.3);
-}
-
-.btn-contact :deep(.el-icon) {
-  color: #fff;
-}
-
-/* 详情卡片 */
-.detail-card {
-  display: grid;
-  grid-template-columns: 500px 1fr;
-  gap: 40px;
-  background: #fff;
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  margin-bottom: 24px;
-}
-
-/* 图片画廊 */
-.gallery {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.main-pic-wrap {
+  color: #757575;
+  cursor: pointer;
   position: relative;
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #f9fafb;
-  border: 2px solid #e5e7eb;
-  cursor: zoom-in;
-  transition: all 0.3s;
+  transition: color 0.2s;
 }
 
-.main-pic-wrap:hover {
-  border-color: #03a688;
-  box-shadow: 0 4px 20px rgba(3, 166, 136, 0.15);
+.tab-btn.active {
+  color: #1a1a1a;
+  font-weight: 600;
 }
 
-.main-pic {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s;
-}
-
-.main-pic-wrap:hover .main-pic {
-  transform: scale(1.05);
-}
-
-.nav-arrows {
+.tab-btn.active::after {
+  content: '';
   position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  transform: translateY(-50%);
-  display: flex;
-  justify-content: space-between;
-  padding: 0 16px;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.main-pic-wrap:hover .nav-arrows {
-  opacity: 1;
-}
-
-.arrow {
-  pointer-events: auto;
-  width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.95);
-  border: none;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s;
-}
-
-.arrow:hover:not(:disabled) {
-  background: #03a688;
-  color: #fff;
-  transform: scale(1.1);
-}
-
-.arrow:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.indicator {
-  position: absolute;
-  bottom: 16px;
+  bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.65);
+  width: 32px;
+  height: 3px;
+  border-radius: 2px;
+  background: #4caf50;
+}
+
+.tab-btn .el-icon {
+  font-size: 16px;
+}
+
+.tab-badge {
+  background: #ff5722;
   color: #fff;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 500;
-  backdrop-filter: blur(4px);
-}
-
-/* 缩略图 */
-.thumbnails {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding: 4px 0;
-}
-
-.thumbnail-item {
-  width: 80px;
-  height: 80px;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: all 0.3s;
-  flex-shrink: 0;
-}
-
-.thumbnail-item img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.thumbnail-item:hover {
-  border-color: #03a688;
-  transform: translateY(-2px);
-}
-
-.thumbnail-item.active {
-  border-color: #03a688;
-  box-shadow: 0 2px 8px rgba(3, 166, 136, 0.3);
-}
-
-/* 商品信息 */
-.info {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.title {
-  font-size: 28px;
-  font-weight: 700;
-  color: #111827;
-  margin: 0;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 10px;
   line-height: 1.4;
 }
 
-.tags {
+.tab-panel {
+  padding: 20px;
+}
+
+/* 留言 */
+.message-input-wrap {
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 20px;
 }
 
-.tags :deep(.el-tag) {
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  border-radius: 8px;
+.message-input-wrap :deep(.el-textarea) {
+  flex: 1;
 }
 
-/* 价格区块 */
-.price-block {
-  padding: 24px;
-  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
-  border-radius: 12px;
-  border: 2px solid #fed7aa;
+.message-input-wrap :deep(.el-textarea__inner) {
+  border-radius: 10px;
+  border: 1px solid #e0e0e0;
+  padding: 10px 14px;
 }
 
-.price-main {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.message-input-wrap :deep(.el-textarea__inner):focus {
+  border-color: #4caf50;
 }
 
-.price-label {
-  font-size: 15px;
-  color: #92400e;
-  font-weight: 500;
+.message-input-wrap .el-button {
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 10px;
+  background: #4caf50;
+  border: none;
 }
 
-.price {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
+.message-input-wrap .el-button:hover:not(:disabled) {
+  background: #43a047;
 }
 
-.currency {
-  font-size: 22px;
-  color: #ea580c;
-  font-weight: 600;
+.message-empty {
+  padding: 20px 0;
 }
 
-.num {
-  font-size: 36px;
-  color: #ea580c;
-  font-weight: 700;
-  line-height: 1;
-}
-
-/* 规格信息 */
-.specs {
+.message-stream {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 20px;
-  background: #f9fafb;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
 }
 
-.spec-item {
+.msg-card {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.spec-icon {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
-  border-radius: 8px;
-  color: #03a688;
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.spec-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.spec-label {
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.spec-val {
-  font-size: 15px;
-  color: #1f2937;
-  font-weight: 500;
-}
-
-.spec-detail {
-  font-size: 13px;
-  color: #9ca3af;
-}
-
-/* 操作按钮 */
-.actions {
-  display: flex;
-  gap: 12px;
-  padding-top: 8px;
-}
-
-.btn-buy {
-  flex: 2;
-  height: 52px;
-  font-size: 17px;
-  font-weight: 600;
-  background: linear-gradient(135deg, #03a688 0%, #02c39a 100%);
-  border: none;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(3, 166, 136, 0.3);
-  transition: all 0.3s;
-}
-
-.btn-buy:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(3, 166, 136, 0.4);
-}
-
-.btn-buy:disabled {
-  background: #e5e7eb;
-  color: #9ca3af;
-  box-shadow: none;
-}
-
-.btn-fav {
-  flex: 1;
-  height: 52px;
-  border: 2px solid #e5e7eb;
-  background: #fff;
-  border-radius: 12px;
-  font-size: 15px;
-  transition: all 0.3s;
-}
-
-.btn-fav:hover {
-  border-color: #fbbf24;
-  color: #f59e0b;
-  background: #fffbeb;
-}
-
-.btn-fav.favorited {
-  border-color: #fbbf24;
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-  color: #f59e0b;
-}
-
-.tip {
-  margin-top: 4px;
-}
-
-/* 区块样式 */
-.section {
-  background: #fff;
-  border-radius: 16px;
-  padding: 28px 32px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  margin-bottom: 24px;
-}
-
-.section-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0 0 20px 0;
-  padding-bottom: 16px;
-  border-bottom: 2px solid #e5e7eb;
-  display: flex;
-  align-items: center;
   gap: 10px;
 }
 
-.title-icon {
-  font-size: 22px;
-  color: #03a688;
-}
-
-/* 留言板块 */
-.message-form {
-  margin-bottom: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.message-input :deep(.el-textarea__inner) {
-  resize: vertical;
-  min-height: 90px;
-  border-radius: 10px;
-  border: 2px solid #e5e7eb;
-  padding: 12px 16px;
-  font-size: 14px;
-  transition: all 0.3s;
-}
-
-.message-input :deep(.el-textarea__inner):focus {
-  border-color: #03a688;
-  box-shadow: 0 0 0 3px rgba(3, 166, 136, 0.1);
-}
-
-.btn-send {
-  align-self: flex-end;
-  min-width: 120px;
-  height: 40px;
-  font-size: 15px;
-  font-weight: 500;
-  border-radius: 10px;
-}
-
-.message-placeholder {
-  min-height: 160px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f9fafb;
-  border-radius: 12px;
-}
-
-.message-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.message-item {
-  display: flex;
-  gap: 12px;
-  padding: 16px;
-  background: #f9fafb;
-  border-radius: 12px;
-  transition: all 0.3s;
-}
-
-.message-item:hover {
-  background: #f3f4f6;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.message-avatar {
+.msg-avatar {
   flex-shrink: 0;
-  background: linear-gradient(135deg, #03a688 0%, #02c39a 100%);
+  background: #e0e0e0;
+  color: #616161;
+  font-size: 14px;
 }
 
-.message-body {
+.msg-content {
   flex: 1;
   min-width: 0;
 }
 
-.message-meta {
+.msg-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 6px;
 }
 
-.message-user {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.message-time {
-  font-size: 13px;
-  color: #9ca3af;
-}
-
-.message-content {
+.msg-user {
   font-size: 14px;
-  color: #374151;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.msg-time {
+  font-size: 12px;
+  color: #bdbdbd;
+}
+
+.msg-text {
+  font-size: 14px;
+  color: #424242;
   line-height: 1.6;
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-/* 空状态 */
-.empty-state {
-  max-width: 1200px;
-  margin: 60px auto;
-  padding: 40px 20px;
+/* 移动端底部操作栏 */
+.action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border-top: 1px solid #f0f0f0;
+  padding: 10px 16px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0));
+  z-index: 100;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
 }
 
-/* 聊天弹窗 */
-.chat-container {
+.action-bar-inner {
+  max-width: 800px;
+  margin: 0 auto;
   display: flex;
-  flex-direction: column;
-  height: 480px;
-}
-
-.chat-status {
-  padding: 4px 8px;
-  font-size: 12px;
-  color: #909399;
-  text-align: center;
-  border-bottom: 1px solid #ebeef5;
-}
-
-.chat-status.chat-connected {
-  color: #67c23a;
-}
-
-.chat-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
   gap: 12px;
-  background: #fafafa;
-}
-
-.chat-empty {
-  flex: 1;
-  display: flex;
   align-items: center;
-  justify-content: center;
-  color: #909399;
-  font-size: 14px;
 }
 
-.chat-msg {
+.bar-btn {
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.chat-msg.chat-msg-self {
-  flex-direction: row-reverse;
-}
-
-.chat-msg-avatar {
-  flex-shrink: 0;
-}
-
-.chat-msg-avatar .el-avatar {
-  background: #f0f0f0;
-  color: #666;
-  font-size: 12px;
-}
-
-.chat-msg-self .chat-msg-avatar .el-avatar {
-  background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
-  color: white;
-}
-
-.chat-msg-bubble {
-  max-width: 70%;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-}
-
-.chat-msg-self .chat-msg-bubble {
-  background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
-  color: #fff;
-}
-
-.chat-msg-content {
-  font-size: 14px;
-  line-height: 1.5;
-  word-break: break-word;
-}
-
-.chat-msg-time {
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  color: #757575;
+  cursor: pointer;
+  transition: color 0.2s;
   font-size: 11px;
-  color: #909399;
-  margin-top: 4px;
-  text-align: right;
+  border-radius: 8px;
 }
 
-.chat-msg-self .chat-msg-time {
-  color: rgba(255, 255, 255, 0.7);
+.bar-btn .el-icon {
+  font-size: 22px;
 }
 
-.chat-input-bar {
-  display: flex;
-  gap: 8px;
-  padding: 12px;
-  border-top: 1px solid #ebeef5;
-  background: #fff;
+.bar-btn:hover {
+  background: #f5f5f5;
 }
 
-.chat-input-bar :deep(.el-input__wrapper) {
-  border-radius: 10px;
+.bar-btn.active {
+  color: #ff9800;
 }
 
-/* 响应式设计 */
-@media (max-width: 1024px) {
-  .detail-card {
-    grid-template-columns: 1fr;
-    gap: 32px;
-  }
-
-  .gallery {
-    max-width: 500px;
-    margin: 0 auto;
-  }
+.bar-btn-primary {
+  flex: 1;
+  height: 48px;
+  border-radius: 24px;
+  font-size: 16px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+  border: none;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 }
 
-@media (max-width: 768px) {
-  .main {
-    padding: 0 16px;
+.bar-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #43a047 0%, #4caf50 100%);
+}
+
+.bar-btn-primary:disabled {
+  background: #e0e0e0;
+  box-shadow: none;
+}
+
+.bottom-spacer {
+  height: 20px;
+}
+
+/* ==================== 空状态 ==================== */
+.empty-state {
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 0 16px;
+}
+
+/* ==================== 移动端小屏适配 ==================== */
+@media (max-width: 480px) {
+  .content {
+    padding: 0 12px 100px;
   }
 
-  .detail-card {
-    padding: 24px 20px;
-    gap: 24px;
+  .float-card {
+    padding: 16px;
+    border-radius: 12px;
   }
 
-  .title {
-    font-size: 22px;
+  .price-value {
+    font-size: 28px;
   }
 
-  .num {
-    font-size: 30px;
+  .info-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 
-  .actions {
-    flex-direction: column;
+  .info-cell {
+    padding: 16px 8px;
   }
 
-  .btn-buy, .btn-fav {
-    flex: 1;
-  }
-
-  .section {
-    padding: 20px 16px;
-  }
-
-  .section-title {
+  .info-cell .el-icon {
     font-size: 18px;
   }
 }
 
-@media (max-width: 480px) {
-  .top-bar-inner {
-    padding: 12px 16px;
+/* ==================== 桌面端布局 ==================== */
+@media (min-width: 768px) {
+  .empty-state {
+    margin: 80px auto;
+  }
+}
+
+/* 桌面端卖家信息条 */
+.dt-seller-bar {
+  border-bottom: 1px solid #f0f0f0;
+  background: #fff;
+}
+
+.dt-seller-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dt-seller-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dt-seller-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.dt-seller-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.dt-seller-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #fff8e1;
+  color: #f9a825;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dt-seller-meta {
+  font-size: 13px;
+  color: #9e9e9e;
+}
+
+.dt-seller-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.dt-seller-stat {
+  font-size: 13px;
+  color: #9e9e9e;
+}
+
+.dt-share-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  color: #757575;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dt-share-btn:hover {
+  background: #f5f5f5;
+  border-color: #bdbdbd;
+}
+
+/* 桌面端主体 */
+.dt-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+/* 左侧图片区 */
+.dt-left {
+  flex: 0 0 520px;
+  position: sticky;
+  top: 24px;
+}
+
+.dt-gallery {
+  display: flex;
+  gap: 12px;
+  background: #fafafa;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #f0f0f0;
+}
+
+/* 缩略图列表 */
+.dt-thumb-list {
+  flex: 0 0 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.dt-thumb-list::-webkit-scrollbar {
+  width: 3px;
+}
+
+.dt-thumb-list::-webkit-scrollbar-thumb {
+  background: #e0e0e0;
+  border-radius: 3px;
+}
+
+.dt-thumb-item {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  overflow: hidden;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.2s;
+  background: #fff;
+}
+
+.dt-thumb-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dt-thumb-item.active {
+  border-color: #ff5722;
+}
+
+.dt-thumb-item:hover:not(.active) {
+  border-color: #e0e0e0;
+}
+
+/* 大图区 */
+.dt-main-image {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dt-main-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  cursor: zoom-in;
+  max-height: 480px;
+}
+
+.dt-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 5;
+  font-size: 18px;
+}
+
+.dt-arrow:hover {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.dt-arrow-left {
+  left: 12px;
+}
+
+.dt-arrow-right {
+  right: 12px;
+}
+
+.dt-image-counter {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+/* 担保交易栏 */
+.dt-trust-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px;
+  font-size: 13px;
+  color: #9e9e9e;
+}
+
+.dt-trust-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.dt-trust-item:hover {
+  color: #616161;
+}
+
+.dt-trust-icon {
+  font-size: 14px;
+  color: #4caf50;
+}
+
+.dt-trust-dot {
+  color: #e0e0e0;
+}
+
+/* 右侧信息区 */
+.dt-right {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 价格区 */
+.dt-price-section {
+  margin-bottom: 16px;
+}
+
+.dt-price-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dt-price-main {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.dt-price-symbol {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ff5722;
+}
+
+.dt-price-value {
+  font-size: 42px;
+  font-weight: 700;
+  color: #ff5722;
+  line-height: 1;
+}
+
+/* 标题区 */
+.dt-title-section {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.dt-item-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.dt-tag-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dt-tag {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dt-tag.cond-new {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.dt-tag.cond-like-new {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #90caf9;
+}
+
+.dt-tag.cond-used {
+  background: #fff3e0;
+  color: #ef6c00;
+  border: 1px solid #ffcc80;
+}
+
+.dt-tag-cat {
+  background: #f5f5f5;
+  color: #616161;
+  border: 1px solid #e0e0e0;
+}
+
+.dt-tag-status.badge-onsale {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.dt-tag-status.badge-sold {
+  background: #f5f5f5;
+  color: #9e9e9e;
+  border: 1px solid #e0e0e0;
+}
+
+.dt-tag-status.badge-offshelf {
+  background: #fff3e0;
+  color: #ef6c00;
+  border: 1px solid #ffcc80;
+}
+
+/* 描述区 */
+.dt-desc-section {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* 留言区 */
+.dt-message-section {
+  margin-bottom: 24px;
+}
+
+.dt-msg-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.dt-msg-title h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.dt-msg-count {
+  background: #ff5722;
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+/* 桌面端操作栏 */
+.dt-action-bar {
+  margin-top: 8px;
+}
+
+.dt-action-inner {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.dt-fav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 20px;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  color: #757575;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 12px;
+}
+
+.dt-fav-btn .el-icon {
+  font-size: 20px;
+}
+
+.dt-fav-btn:hover {
+  background: #f5f5f5;
+}
+
+.dt-fav-btn.active {
+  color: #ff9800;
+  border-color: #ffcc80;
+  background: #fff8e1;
+}
+
+.dt-chat-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 32px;
+  border: none;
+  background: #ffeb3b;
+  color: #1a1a1a;
+  border-radius: 24px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.dt-chat-btn:hover {
+  background: #fdd835;
+}
+
+.dt-buy-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 48px;
+  border: none;
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 24px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.dt-buy-btn:hover:not(:disabled) {
+  background: #333;
+}
+
+.dt-buy-btn:disabled {
+  background: #bdbdbd;
+  cursor: not-allowed;
+}
+
+/* 桌面端响应式 */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .dt-main {
+    gap: 24px;
   }
 
-  .owner-bar {
-    padding: 12px 16px;
+  .dt-left {
+    flex: 0 0 420px;
   }
 
-  .main {
-    padding: 0 12px;
+  .dt-gallery {
+    padding: 12px;
   }
 
-  .detail-card {
-    padding: 20px 16px;
+  .dt-main-image {
+    min-height: 340px;
   }
 
-  .title {
-    font-size: 20px;
+  .dt-price-value {
+    font-size: 36px;
   }
+}
 
-  .price-block {
-    padding: 20px;
-  }
-
-  .num {
-    font-size: 28px;
-  }
-
-  .nav-arrows {
-    display: none;
-  }
-
-  .thumbnails {
-    gap: 8px;
-  }
-
-  .thumbnail-item {
-    width: 60px;
-    height: 60px;
+@media (min-width: 1024px) {
+  .dt-left {
+    flex: 0 0 560px;
   }
 }
 </style>

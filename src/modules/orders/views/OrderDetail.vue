@@ -109,20 +109,25 @@
         </div>
       </div>
 
-      <!-- 费用与时间 -->
+      <!-- 费用信息 -->
       <el-descriptions
         title="费用信息"
         :column="2"
         border
         class="section"
       >
-        <el-descriptions-item label="单价">¥{{ order.price }}/{{ billingLabel(order.billingType) }}</el-descriptions-item>
+        <el-descriptions-item label="单价">¥{{ order.price }}<span v-if="billingLabel(order.billingType)">/{{ billingLabel(order.billingType) }}</span></el-descriptions-item>
         <el-descriptions-item label="押金">¥{{ order.deposit }}</el-descriptions-item>
-        <el-descriptions-item label="借用天数">{{ order.borrowDays }} 天</el-descriptions-item>
+        <el-descriptions-item
+          v-if="order.borrowDays"
+          label="借用天数"
+        >{{ order.borrowDays }} 天</el-descriptions-item>
         <el-descriptions-item label="总金额">¥{{ order.totalAmount }}</el-descriptions-item>
       </el-descriptions>
 
+      <!-- 时间信息（借用订单才展示计划/归还时间） -->
       <el-descriptions
+        v-if="order.billingType"
         title="时间信息"
         :column="2"
         border
@@ -155,6 +160,35 @@
         </el-descriptions-item>
       </el-descriptions>
 
+      <!-- 买断式订单简化时间信息 -->
+      <el-descriptions
+        v-else
+        title="时间信息"
+        :column="2"
+        border
+        class="section"
+      >
+        <el-descriptions-item label="创建时间">{{ formatTimestamp(order.createdAt) }}</el-descriptions-item>
+        <el-descriptions-item
+          v-if="order.confirmTime"
+          label="确认时间"
+        >
+          {{ formatTimestamp(order.confirmTime) }}
+        </el-descriptions-item>
+        <el-descriptions-item
+          v-if="order.payTime"
+          label="支付时间"
+        >
+          {{ formatTimestamp(order.payTime) }}
+        </el-descriptions-item>
+        <el-descriptions-item
+          v-if="order.borrowTime"
+          label="交易时间"
+        >
+          {{ formatTimestamp(order.borrowTime) }}
+        </el-descriptions-item>
+      </el-descriptions>
+
       <!-- 操作按钮：借用人只能取消/去付款，出借人可同意/拒绝、开始借用、确认归还 -->
       <div class="actions">
         <!-- 借用人：取消申请、待付款时仅展示去付款提示（实际付款走支付渠道） -->
@@ -170,9 +204,10 @@
           <el-button
             v-if="order.status === ORDER_STATUS.WAIT_PAY"
             type="primary"
-            disabled
+            :loading="paying"
+            @click="handlePay"
           >
-            待付款（请通过支付渠道完成付款）
+            立即支付
           </el-button>
         </template>
         <!-- 出借人：同意/拒绝、开始借用、确认归还 -->
@@ -214,20 +249,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Picture } from '@element-plus/icons-vue'
 import { orderApi } from '@/shared/api'
 import { useUserStore } from '@/shared/stores/user'
 import { ORDER_STATUS } from '@/shared/utils/constants'
 import { formatTimestamp } from '@/shared/utils/format'
+import { usePay } from '@/modules/orders/composables/usePay'
 import type { BorrowOrder } from '@/shared/types/models'
 
 const route = useRoute()
 const userStore = useUserStore()
 const order = ref<BorrowOrder | null>(null)
 const loading = ref(true)
+
+const { paying, startPay, destroy } = usePay()
 
 /** 当前用户是借用人（查看「我借用的」）时不展示借用人；是出借人（查看「我借出的」）时不展示出借人 */
 const currentUserId = computed(() => String(userStore.userId || ''))
@@ -268,7 +306,7 @@ const billingLabel = (type: string | number) => {
     2: '周',
     3: '月'
   }
-  return map[String(type)] || '天'
+  return map[String(type)] || ''
 }
 
 const statusText = (status: number) => {
@@ -334,6 +372,33 @@ const fetchDetail = async () => {
 onMounted(() => {
   fetchDetail()
 })
+
+onUnmounted(() => {
+  destroy()
+})
+
+async function handlePay() {
+  const orderNo = order.value?.orderNo
+  const version = order.value?.version
+  if (!orderNo || version === undefined) {
+    ElMessage.error('订单信息不完整')
+    return
+  }
+
+  // 先打开空白窗口（必须在点击事件中同步执行，避免浏览器弹窗拦截）
+  const win = window.open('', '_blank')
+  if (!win) {
+    ElMessage.warning('请允许浏览器弹窗，否则无法完成支付')
+    return
+  }
+
+  try {
+    await startPay(orderNo, version, win)
+  } catch (err: any) {
+    win.close()
+    ElMessage.error(err.message || '支付发起失败，请刷新页面重试')
+  }
+}
 
 const setStatus = async (status: 1 | 2 | 3 | 4 | 5 | 6 | 7) => {
   const orderId = order.value?.id

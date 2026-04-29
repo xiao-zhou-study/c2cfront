@@ -273,24 +273,6 @@
       </template>
     </el-dialog>
 
-    <!-- 支付表单弹窗 -->
-    <el-dialog
-      v-model="payFormVisible"
-      title="支付"
-      width="480px"
-      class="pay-form-dialog"
-      :close-on-click-modal="false"
-      destroy-on-close
-      @closed="payFormHtml = null"
-    >
-      <div v-if="payFormHtml" class="pay-form-wrap" v-html="payFormHtml" />
-      <div v-else class="pay-form-loading">
-        <div class="pay-form-loading__spinner" />
-        <p class="pay-form-loading__text">正在跳转至支付页面...</p>
-        <p class="pay-form-loading__sub">请稍候</p>
-      </div>
-    </el-dialog>
-
     <!-- 评价弹窗 -->
     <el-dialog
       v-model="reviewVisible"
@@ -347,11 +329,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Search, Picture } from '@element-plus/icons-vue'
 import { orderApi } from '@/shared/api'
+import { usePay } from '@/modules/orders/composables/usePay'
 import type { BorrowOrderItem } from '@/shared/api/modules/order'
 import { formatTimestamp } from '@/shared/utils/format'
 
@@ -365,13 +348,12 @@ const pageSize = ref(20)
 const total = ref(0)
 
 const router = useRouter()
+const { paying, startPay } = usePay()
+
 const detailVisible = ref(false)
 const detailOrder = ref<BorrowOrderItem | null>(null)
 const detailLoading = ref(false)
 const detailActionLoading = ref<string | null>(null)
-
-const payFormVisible = ref(false)
-const payFormHtml = ref<string | null>(null)
 
 const reviewVisible = ref(false)
 const reviewForm = ref({ rating: 0, content: '', isAnonymous: false })
@@ -479,71 +461,24 @@ async function handleDetailCancel() {
 async function handleDetailPay() {
   const order = detailOrder.value
   if (!order) return
+
+  // 先打开空白窗口（必须在点击事件中同步执行，避免浏览器弹窗拦截）
+  const win = window.open('', '_blank')
+  if (!win) {
+    ElMessage.warning('请允许浏览器弹窗，否则无法完成支付')
+    return
+  }
+
   try {
     detailActionLoading.value = 'pay'
-    payFormHtml.value = null
     detailVisible.value = false
-    payFormVisible.value = true
-    const result = await orderApi.payBorrowOrder(order.id, order.version)
-    if (typeof result === 'string') {
-      if (result === 'SUCCESS' || result.toUpperCase() === 'SUCCESS') {
-        payFormVisible.value = false
-        ElMessage.success('支付成功')
-        await fetchBorrowOrders(true)
-        await nextTick()
-        router.push({ path: '/pay/success', query: { orderNo: order.id } })
-        return
-      }
-      payFormHtml.value = result
-      await nextTick()
-      setTimeout(submitPayFormInDialog, 100)
-      return
-    }
-    const data = result as { formHtml?: string; method?: string; action?: string; fields?: Array<{ name: string; value: string }> }
-    if (data.formHtml) {
-      payFormHtml.value = data.formHtml
-      await nextTick()
-      setTimeout(submitPayFormInDialog, 100)
-      return
-    }
-    if (data.method && data.action && Array.isArray(data.fields)) {
-      payFormVisible.value = false
-      submitStructuredPayForm(data.method, data.action, data.fields)
-      return
-    }
-    payFormVisible.value = false
-    ElMessage.success('支付跳转中')
-    await fetchBorrowOrders(true)
-  } catch (e) {
+    await startPay(order.id, order.version, win)
+  } catch (e: any) {
+    win.close()
     console.error('发起支付失败:', e)
-    payFormVisible.value = false
   } finally {
     detailActionLoading.value = null
   }
-}
-
-function submitPayFormInDialog() {
-  const wrap = document.querySelector('.pay-form-wrap')
-  if (!wrap) return
-  const form = wrap.querySelector('form')
-  if (form) form.submit()
-}
-
-function submitStructuredPayForm(method: string, action: string, fields: Array<{ name: string; value: string }>) {
-  const form = document.createElement('form')
-  form.method = method.toUpperCase() === 'GET' ? 'get' : 'post'
-  form.action = action
-  form.style.display = 'none'
-  fields.forEach(({ name, value }) => {
-    const input = document.createElement('input')
-    input.type = 'hidden'
-    input.name = name
-    input.value = value
-    form.appendChild(input)
-  })
-  document.body.appendChild(form)
-  form.submit()
-  document.body.removeChild(form)
 }
 
 async function handleDetailConfirmReceive() {
@@ -916,41 +851,6 @@ defineExpose({ refresh })
 
 .detail-actions-tip {
   color: #909399;
-  font-size: 13px;
-}
-
-/* 支付弹窗 */
-.pay-form-dialog .pay-form-wrap {
-  min-height: 60px;
-}
-.pay-form-dialog .pay-form-wrap :deep(form) {
-  display: none;
-}
-.pay-form-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 24px;
-  min-height: 120px;
-}
-.pay-form-loading__spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--el-border-color-lighter);
-  border-top-color: var(--el-color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-.pay-form-loading__text {
-  margin: 20px 0 4px;
-  color: var(--el-text-color-primary);
-  font-size: 15px;
-  font-weight: 500;
-}
-.pay-form-loading__sub {
-  margin: 0;
-  color: var(--el-text-color-secondary);
   font-size: 13px;
 }
 

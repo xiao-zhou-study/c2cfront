@@ -117,10 +117,6 @@
                   <el-icon><SuccessFilled /></el-icon>
                   <span>已售出</span>
                 </el-menu-item>
-                <el-menu-item index="3">
-                  <el-icon><CircleClose /></el-icon>
-                  <span>已下架</span>
-                </el-menu-item>
               </el-menu>
             </el-collapse-item>
           </el-collapse>
@@ -234,7 +230,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Grid, CircleCheck, RefreshRight, Goods, Menu, SuccessFilled, CircleClose } from '@element-plus/icons-vue'
+import { Search, Grid, CircleCheck, RefreshRight, Goods, Menu, SuccessFilled } from '@element-plus/icons-vue'
 import { useItemList } from '../composables/useItemList'
 import { getCategoryList } from '@/shared/api/modules/item'
 import ProductCard from '@/shared/components/ProductCard.vue'

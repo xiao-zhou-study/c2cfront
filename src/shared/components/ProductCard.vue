@@ -248,7 +248,7 @@ const billingUnit = computed(() => {
     'per_week': '周',
     'per_month': '月'
   }
-  return unitMap[props.item.billingType || 'per_day'] || '天'
+  return props.item.billingType ? unitMap[props.item.billingType] || '' : ''
 })
 
 /** 所有者信息 */
